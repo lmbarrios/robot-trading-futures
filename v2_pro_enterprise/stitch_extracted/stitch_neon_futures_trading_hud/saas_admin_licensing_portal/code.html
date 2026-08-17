@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ApexTrader.AI - Admin Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=Inter:wght@100..900&amp;family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed-dim": "#4edea3",
+                        "outline-variant": "#45464d",
+                        "secondary-fixed": "#cce5ff",
+                        "on-surface": "#d4e4fa",
+                        "primary-fixed": "#dae2fd",
+                        "primary-container": "#0f172a",
+                        "surface-variant": "#273647",
+                        "inverse-surface": "#d4e4fa",
+                        "primary": "#bec6e0",
+                        "tertiary-fixed": "#6ffbbe",
+                        "surface-tint": "#bec6e0",
+                        "surface-container-highest": "#273647",
+                        "on-secondary-fixed": "#001d31",
+                        "tertiary": "#4edea3",
+                        "on-secondary": "#003351",
+                        "surface-container-low": "#0d1c2d",
+                        "secondary-fixed-dim": "#93ccff",
+                        "surface": "#051424",
+                        "error": "#ffb4ab",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "secondary": "#93ccff",
+                        "on-secondary-container": "#002c47",
+                        "secondary-container": "#3198dc",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "outline": "#909097",
+                        "on-error": "#690005",
+                        "primary-fixed-dim": "#bec6e0",
+                        "on-tertiary-fixed": "#002113",
+                        "on-secondary-fixed-variant": "#004b73",
+                        "surface-container-lowest": "#010f1f",
+                        "surface-dim": "#051424",
+                        "tertiary-container": "#001c10",
+                        "on-tertiary-container": "#009365",
+                        "on-primary-container": "#798098",
+                        "surface-container": "#122131",
+                        "background": "#051424",
+                        "inverse-primary": "#565e74",
+                        "on-primary": "#283044",
+                        "surface-bright": "#2c3a4c",
+                        "surface-container-high": "#1c2b3c",
+                        "on-primary-fixed": "#131b2e",
+                        "inverse-on-surface": "#233143",
+                        "on-surface-variant": "#c6c6cd",
+                        "error-container": "#93000a",
+                        "on-tertiary": "#003824",
+                        "on-background": "#d4e4fa"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "container-padding": "12px",
+                        "margin": "24px",
+                        "unit": "4px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Geist"],
+                        "data-md": ["JetBrains Mono"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["JetBrains Mono"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Geist"],
+                        "data-lg": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "data-md": ["14px", {"lineHeight": "18px", "fontWeight": "500"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "label-sm": ["11px", {"lineHeight": "16px", "fontWeight": "700"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "data-lg": ["18px", {"lineHeight": "24px", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: theme('colors.background'); color: theme('colors.on-background'); }
+        .glass-card {
+            background-color: rgba(15, 23, 42, 0.6); /* Primary Container @ 60% */
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .glass-card-active {
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(16px);
+            border: 1px solid theme('colors.secondary');
+            box-shadow: 0 0 8px 0px theme('colors.secondary');
+        }
+        .neon-glow-btn {
+            box-shadow: 0 0 4px 0px transparent;
+            transition: box-shadow 0.2s ease-in-out;
+        }
+        .neon-glow-btn:hover {
+            box-shadow: 0 0 8px 0px theme('colors.secondary');
+        }
+        
+        /* Custom Scrollbar for Data Tables */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: theme('colors.surface-container');
+        }
+        ::-webkit-scrollbar-thumb {
+            background: theme('colors.surface-variant');
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: theme('colors.outline');
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col md:flex-row antialiased">
+<!-- SideNavBar (Mobile Hidden, Desktop Sidebar) -->
+<nav class="hidden md:flex flex-col py-gutter space-y-unit bg-surface-container-lowest/80 backdrop-blur-2xl fixed left-0 top-0 h-screen w-64 z-40 border-r border-white/5">
+<div class="px-margin mb-8 flex items-center space-x-3">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">terminal</span>
+<div>
+<h1 class="font-headline-md text-headline-md text-secondary">Terminal v4.2</h1>
+<p class="font-label-sm text-label-sm text-outline">Connected: NY-DC1</p>
+</div>
+</div>
+<div class="px-margin mb-6">
+<button class="w-full py-2 bg-secondary text-primary-container font-label-sm text-label-sm rounded neon-glow-btn flex items-center justify-center space-x-2">
+<span class="material-symbols-outlined text-[16px]">add</span>
+<span>New Trade</span>
+</button>
+</div>
+<div class="flex-1 space-y-1 px-3">
+<!-- Active Navigation -->
+<a class="flex items-center space-x-3 px-4 py-3 bg-secondary-container/20 text-secondary border-l-4 border-secondary rounded-r-DEFAULT cursor-pointer transition-transform duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider">Dashboard</span>
+</a>
+<!-- Inactive Navigations -->
+<a class="flex items-center space-x-3 px-4 py-3 text-outline hover:text-on-surface hover:bg-surface-variant/30 border-l-4 border-transparent rounded-r-DEFAULT cursor-pointer transition-all duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider">Traders/Clients</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 text-outline hover:text-on-surface hover:bg-surface-variant/30 border-l-4 border-transparent rounded-r-DEFAULT cursor-pointer transition-all duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined">key</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider">Active Licenses</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 text-outline hover:text-on-surface hover:bg-surface-variant/30 border-l-4 border-transparent rounded-r-DEFAULT cursor-pointer transition-all duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined">account_balance</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider">Funded Accounts</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 text-outline hover:text-on-surface hover:bg-surface-variant/30 border-l-4 border-transparent rounded-r-DEFAULT cursor-pointer transition-all duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider">Subscriptions</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 text-outline hover:text-on-surface hover:bg-surface-variant/30 border-l-4 border-transparent rounded-r-DEFAULT cursor-pointer transition-all duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined">verified_user</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider">Verification Logs</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 text-outline hover:text-on-surface hover:bg-surface-variant/30 border-l-4 border-transparent rounded-r-DEFAULT cursor-pointer transition-all duration-150 active:scale-95" href="#">
+<span class="material-symbols-outlined">save_as</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider">API Settings</span>
+</a>
+</div>
+<div class="px-3 pb-6 mt-auto">
+<a class="flex items-center space-x-3 px-4 py-3 text-outline hover:text-error hover:bg-error-container/20 border-l-4 border-transparent rounded-r-DEFAULT cursor-pointer transition-all duration-150" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider">Logout</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-1 md:ml-64 flex flex-col w-full min-h-screen">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center px-margin h-16 w-full max-w-[1920px] mx-auto bg-surface/60 backdrop-blur-xl border-b border-white/10 sticky top-0 z-30">
+<div class="flex items-center space-x-4 md:hidden">
+<span class="material-symbols-outlined text-secondary text-2xl">menu</span>
+<span class="font-headline-md text-headline-md font-bold tracking-tighter text-secondary">ApexTrader.AI</span>
+</div>
+<div class="hidden md:flex items-center space-x-4">
+<img alt="Header Image" class="h-8 w-8 rounded object-cover border border-white/10" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDR01rWcUheBdtAwvxMMjfFCVHqxiiYSwyfFgnF_RB9bmTZklphQfOHis0h3cVSJkEKyyhKRuZiHU1MNO0pB-CdhRt-bU2aHcIm0-wPXzG5FwFruzYC4UoItz9C-B6aix2Fwa_W4a3BsWXGHxDD7tmYZg_udFHxVIn3JP55b679ckvGshhZOfWJWsFYEamOCOCba9SJYhcC5vR8HiARw_LotqnRlRYqi9Opmf7xSImGV88kDfGeZ0DN3w"/>
+<span class="font-headline-md text-headline-md font-bold tracking-tighter text-secondary">ApexTrader.AI Admin</span>
+</div>
+<div class="flex items-center space-x-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span>
+<input class="bg-primary-container/80 border border-outline-variant text-on-surface font-data-md text-data-md rounded-DEFAULT pl-10 pr-4 py-1.5 focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary transition-colors w-64" placeholder="Search HWID, Email..." type="text"/>
+</div>
+<button class="text-on-surface-variant hover:text-secondary transition-colors p-2 hover:bg-surface-variant/50 rounded-full active:scale-95 duration-100">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-secondary transition-colors p-2 hover:bg-surface-variant/50 rounded-full active:scale-95 duration-100">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-surface-variant border border-secondary flex items-center justify-center text-secondary font-label-sm">
+                    AD
+                </div>
+</div>
+</header>
+<!-- Dashboard Content -->
+<div class="p-margin flex-1 space-y-6 max-w-[1920px] w-full mx-auto">
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">System Overview</h2>
+<p class="font-body-md text-body-md text-outline">Real-time metrics and license management.</p>
+</div>
+<div class="flex space-x-3">
+<button class="px-4 py-2 bg-transparent border border-secondary text-secondary font-label-sm text-label-sm rounded uppercase tracking-wider hover:bg-secondary/10 transition-colors">Export CSV</button>
+<button class="px-4 py-2 bg-secondary text-primary-container font-label-sm text-label-sm rounded neon-glow-btn uppercase tracking-wider">Generate License</button>
+</div>
+</div>
+<!-- Bento Grid: Key Metrics -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Stat Card 1 -->
+<div class="glass-card p-4 rounded-lg flex flex-col justify-between relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[64px] text-secondary">group</span>
+</div>
+<div class="flex justify-between items-start mb-4">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Active Traders</span>
+<div class="h-2 w-2 rounded-full bg-tertiary shadow-[0_0_8px_0px_theme('colors.tertiary')] animate-pulse"></div>
+</div>
+<div>
+<div class="font-headline-lg text-headline-lg text-on-surface mb-1">142</div>
+<div class="flex items-center text-tertiary font-data-md text-data-md">
+<span class="material-symbols-outlined text-[16px]">arrow_upward</span>
+<span>+12% vs last week</span>
+</div>
+</div>
+</div>
+<!-- Stat Card 2 -->
+<div class="glass-card p-4 rounded-lg flex flex-col justify-between relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[64px] text-tertiary">payments</span>
+</div>
+<div class="flex justify-between items-start mb-4">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Revenue (MRR)</span>
+<span class="material-symbols-outlined text-tertiary text-[16px]">trending_up</span>
+</div>
+<div>
+<div class="font-headline-lg text-headline-lg text-on-surface mb-1">$14,200</div>
+<div class="flex items-center text-tertiary font-data-md text-data-md">
+<span class="material-symbols-outlined text-[16px]">arrow_upward</span>
+<span>+$1,400 new sub</span>
+</div>
+</div>
+</div>
+<!-- Stat Card 3 -->
+<div class="glass-card p-4 rounded-lg flex flex-col justify-between relative overflow-hidden group border-error/50">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[64px] text-error">warning</span>
+</div>
+<div class="flex justify-between items-start mb-4">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">Expiring Licenses</span>
+<div class="h-2 w-2 rounded-full bg-error shadow-[0_0_8px_0px_theme('colors.error')]"></div>
+</div>
+<div>
+<div class="font-headline-lg text-headline-lg text-error mb-1">5</div>
+<div class="flex items-center text-outline font-data-md text-data-md">
+<span>Requires action in 48h</span>
+</div>
+</div>
+</div>
+<!-- Stat Card 4 -->
+<div class="glass-card p-4 rounded-lg flex flex-col justify-between relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+<span class="material-symbols-outlined text-[64px] text-secondary">api</span>
+</div>
+<div class="flex justify-between items-start mb-4">
+<span class="font-label-sm text-label-sm text-outline uppercase tracking-wider">API Requests (24h)</span>
+<span class="material-symbols-outlined text-secondary text-[16px]">sync</span>
+</div>
+<div>
+<div class="font-headline-lg text-headline-lg text-on-surface mb-1">3,420</div>
+<div class="flex items-center text-outline font-data-md text-data-md">
+<span>Latency: 12ms avg</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Complex Area: Client Management Table -->
+<div class="glass-card rounded-lg overflow-hidden flex flex-col">
+<div class="p-4 border-b border-white/5 flex justify-between items-center bg-surface-container-high/50">
+<h3 class="font-headline-md text-[18px] text-on-surface flex items-center space-x-2">
+<span class="material-symbols-outlined text-secondary">manage_accounts</span>
+<span>Client Licensing Matrix</span>
+</h3>
+<div class="flex space-x-2">
+<button class="p-1.5 text-outline hover:text-secondary rounded transition-colors"><span class="material-symbols-outlined text-[20px]">filter_list</span></button>
+<button class="p-1.5 text-outline hover:text-secondary rounded transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container/50 border-b border-white/5">
+<th class="py-3 px-4 font-label-sm text-label-sm text-outline uppercase tracking-wider">Trader / Email</th>
+<th class="py-3 px-4 font-label-sm text-label-sm text-outline uppercase tracking-wider">HWID</th>
+<th class="py-3 px-4 font-label-sm text-label-sm text-outline uppercase tracking-wider">Authorized Accounts</th>
+<th class="py-3 px-4 font-label-sm text-label-sm text-outline uppercase tracking-wider">Status</th>
+<th class="py-3 px-4 font-label-sm text-label-sm text-outline uppercase tracking-wider">Expiration</th>
+<th class="py-3 px-4 font-label-sm text-label-sm text-outline uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="font-data-md text-data-md text-on-surface divide-y divide-white/5">
+<!-- Row 1 -->
+<tr class="hover:bg-white/[0.02] transition-colors group">
+<td class="py-3 px-4">
+<div class="font-body-md text-on-surface font-medium">J. Doe</div>
+<div class="text-[12px] text-outline">jdoe@apex.net</div>
+</td>
+<td class="py-3 px-4 font-data-md text-secondary">A8F9-2B4C-99E1</td>
+<td class="py-3 px-4">
+<div class="flex space-x-1">
+<span class="px-2 py-0.5 rounded bg-surface-variant border border-outline/30 text-[11px]">Apex</span>
+<span class="px-2 py-0.5 rounded bg-surface-variant border border-outline/30 text-[11px]">Topstep</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center space-x-1 text-tertiary">
+<div class="h-1.5 w-1.5 rounded-full bg-tertiary shadow-[0_0_4px_0px_theme('colors.tertiary')]"></div>
+<span class="text-[12px] uppercase">Approved</span>
+</span>
+</td>
+<td class="py-3 px-4 text-outline">2024-12-01</td>
+<td class="py-3 px-4 text-right">
+<div class="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1 text-tertiary hover:bg-tertiary/10 rounded" title="Approve/Renew"><span class="material-symbols-outlined text-[18px]">check_circle</span></button>
+<button class="p-1 text-secondary hover:bg-secondary/10 rounded" title="Edit"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+<button class="p-1 text-error hover:bg-error/10 rounded" title="Revoke"><span class="material-symbols-outlined text-[18px]">cancel</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-white/[0.02] transition-colors group">
+<td class="py-3 px-4">
+<div class="font-body-md text-on-surface font-medium">S. Smith</div>
+<div class="text-[12px] text-outline">ssmith@prop.io</div>
+</td>
+<td class="py-3 px-4 font-data-md text-secondary">C3D4-7A1B-55F2</td>
+<td class="py-3 px-4">
+<div class="flex space-x-1">
+<span class="px-2 py-0.5 rounded bg-surface-variant border border-outline/30 text-[11px]">Apex</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center space-x-1 text-error">
+<div class="h-1.5 w-1.5 rounded-full bg-error shadow-[0_0_4px_0px_theme('colors.error')]"></div>
+<span class="text-[12px] uppercase">Revoked</span>
+</span>
+</td>
+<td class="py-3 px-4 text-error">Expired</td>
+<td class="py-3 px-4 text-right">
+<div class="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1 text-tertiary hover:bg-tertiary/10 rounded" title="Approve/Renew"><span class="material-symbols-outlined text-[18px]">check_circle</span></button>
+<button class="p-1 text-secondary hover:bg-secondary/10 rounded" title="Edit"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+<button class="p-1 text-outline hover:bg-surface-variant rounded" title="Delete"><span class="material-symbols-outlined text-[18px]">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-white/[0.02] transition-colors group bg-secondary/5">
+<td class="py-3 px-4">
+<div class="font-body-md text-on-surface font-medium">M. Johnson</div>
+<div class="text-[12px] text-outline">mj@trade.co</div>
+</td>
+<td class="py-3 px-4 font-data-md text-secondary">E9A1-4C8D-22B5</td>
+<td class="py-3 px-4">
+<div class="flex space-x-1">
+<span class="px-2 py-0.5 rounded bg-surface-variant border border-outline/30 text-[11px]">Topstep</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center space-x-1 text-tertiary">
+<div class="h-1.5 w-1.5 rounded-full bg-tertiary shadow-[0_0_4px_0px_theme('colors.tertiary')]"></div>
+<span class="text-[12px] uppercase">Approved</span>
+</span>
+</td>
+<td class="py-3 px-4 text-outline">2024-11-15 <span class="text-error text-[10px] ml-1">(Expiring soon)</span></td>
+<td class="py-3 px-4 text-right">
+<div class="flex justify-end space-x-2 opacity-100 transition-opacity">
+<button class="p-1 text-tertiary hover:bg-tertiary/10 rounded" title="Approve/Renew"><span class="material-symbols-outlined text-[18px]">check_circle</span></button>
+<button class="p-1 text-secondary hover:bg-secondary/10 rounded" title="Edit"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+<button class="p-1 text-error hover:bg-error/10 rounded" title="Revoke"><span class="material-symbols-outlined text-[18px]">cancel</span></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-3 border-t border-white/5 flex justify-between items-center text-outline font-label-sm text-label-sm bg-surface-container-low/50">
+<span>Showing 1-3 of 142 records</span>
+<div class="flex space-x-1">
+<button class="p-1 hover:text-on-surface disabled:opacity-50"><span class="material-symbols-outlined text-[16px]">chevron_left</span></button>
+<button class="p-1 hover:text-on-surface"><span class="material-symbols-outlined text-[16px]">chevron_right</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer -->
+<footer class="w-full py-8 bg-surface-container-lowest border-t border-outline-variant/20 mt-auto">
+<div class="flex flex-col md:flex-row justify-between items-center px-margin max-w-7xl mx-auto space-y-4 md:space-y-0">
+<div class="font-headline-md text-[18px] text-outline font-bold tracking-tighter">
+                    ApexTrader.AI
+                </div>
+<div class="font-body-md text-[12px] text-outline/60">
+                    © 2024 ApexTrader.AI Tactical Systems
+                </div>
+<div class="flex space-x-6 font-label-sm text-[11px] text-outline uppercase tracking-wider">
+<a class="hover:text-secondary transition-colors" href="#">Privacy Protocol</a>
+<a class="hover:text-secondary transition-colors" href="#">API Docs</a>
+<a class="hover:text-secondary transition-colors" href="#">Terms</a>
+</div>
+</div>
+</footer>
+</main>
+</body></html>

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Técnico Completo y Explicativo de Bots - NinjaTrader 8</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            color: #0f172a;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f1f5f9;
+        }
+        .container {
+            background: #ffffff;
+            padding: 45px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #0284c7;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: #0f172a;
+            font-size: 26px;
+            font-weight: 800;
+            margin: 0 0 8px 0;
+            text-transform: uppercase;
+        }
+        .subtitle {
+            color: #0284c7;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        h2 {
+            color: #0369a1;
+            font-size: 20px;
+            font-weight: 700;
+            margin-top: 35px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+        h3 {
+            color: #1e293b;
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+        .card {
+            background: #f8fafc;
+            border-left: 4px solid #0284c7;
+            padding: 18px;
+            margin: 15px 0;
+            border-radius: 6px;
+        }
+        .card-alert {
+            background: #fff7ed;
+            border-left: 4px solid #f97316;
+            padding: 18px;
+            margin: 15px 0;
+            border-radius: 6px;
+        }
+        .img-container {
+            text-align: center;
+            margin: 25px 0;
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 12px;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 13.5px;
+        }
+        th, td {
+            border: 1px solid #cbd5e1;
+            padding: 10px 14px;
+            text-align: left;
+        }
+        th {
+            background-color: #0f172a;
+            color: #ffffff;
+            font-weight: 600;
+        }
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        .badge-red { background-color: #ef4444; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        .badge-orange { background-color: #f97316; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        .badge-green { background-color: #10b981; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        .badge-blue { background-color: #3b82f6; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        .btn-print {
+            display: block;
+            width: 100%;
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            color: white;
+            padding: 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        @media print {
+            .btn-print { display: none; }
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; padding: 0; max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <button class="btn-print" onclick="window.print()">🖨️ Imprimir o Guardar Manual Completo en PDF</button>
+
+    <div class="container">
+        <div class="header">
+            <h1>Manual Operativo Técnico y Explicativo Completo</h1>
+            <div class="subtitle">NinjaTrader 8 &bull; BotAperturaMercado &bull; ReplicadorMulticuentaFuturos</div>
+        </div>
+
+        <h2>🧠 1. AUTO-DETECCIÓN INTELIGENTE DE CUENTAS Y SALDOS</h2>
+        <div class="card">
+            <p><strong>Configuración 100% Automática y Sin Intervención Manual:</strong></p>
+            <ul>
+                <li><strong>Bot de Apertura (`BotAperturaMercado`):</strong> Al iniciar, evalúa el saldo en USD (`CashValue`) y el nombre de la cuenta activa. Si la cuenta es de ~$50K asigna <strong>2 contratos NQ</strong> (-$500 Max Loss); si es de ~$100K asigna <strong>5 contratos NQ</strong> (-$1,000 Max Loss); si es de ~$150K asigna <strong>15 contratos NQ</strong> (-$1,500 Max Loss).</li>
+                <li><strong>Replicador (`ReplicadorMulticuentaFuturos`):</strong> Con el parámetro <code>SlaveAccountNames = AUTO</code>, el replicador detecta automáticamente todas las cuentas conectadas en NinjaTrader 8 (Apex, Topstep, etc.) y las sincroniza en tiempo real.</li>
+            </ul>
+        </div>
+
+        <h2>🤖 2. BOT DE APERTURA DE MERCADO (BotAperturaMercado.cs)</h2>
+        <p>Estrategia automatizada para operar el quiebre y volatilidad de la Apertura de la Bolsa de Nueva York (09:30 AM EST) en los futuros del Nasdaq (NQ / MNQ).</p>
+
+        <div class="img-container">
+            <img src="opening_bot_en.png" alt="Interfaz Gráfica Completa del Bot de Apertura">
+            <div style="color: #94a3b8; font-size: 13px; margin-top: 8px;">Vista del Panel WPF HUD Overlay integrado directamente en el gráfico de NinjaTrader 8.</div>
+        </div>
+
+        <h3>🎨 Dibujado de Análisis y Señales en Velas (Chart Painting)</h3>
+        <div class="img-container">
+            <img src="opening_bot_chart.png" alt="Diagrama de Análisis Visual Dibujado en Velas - Bot de Apertura">
+            <div style="color: #94a3b8; font-size: 13px; margin-top: 8px;">Todas las herramientas de análisis, zonas, niveles y señales pintadas automáticamente sobre el gráfico de velas.</div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Elemento Visual en Gráfico</th>
+                    <th>Color / Estilo</th>
+                    <th>Descripción Técnica y Función en Pantalla</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>Zona Pre-Mercado (08:00–09:29)</strong></td><td><span class="badge-purple" style="background:#9b59b6; color:white; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:12px;">PÚRPURA</span></td><td>Fondo de velas teñido en violeta durante la sesión previa para marcar la ventana de análisis.</td></tr>
+                <tr><td><strong>Líneas Pre-Mercado High / Low</strong></td><td><span class="badge-purple" style="background:#8e44ad; color:white; padding:3px 8px; border-radius:4px; font-weight:bold; font-size:12px;">─ ─ ORQUÍDEA</span></td><td>Traza automáticamente los niveles máximos y mínimos alcanzados antes de la apertura de NY.</td></tr>
+                <tr><td><strong>Línea NY Open (09:30 AM)</strong></td><td><span class="badge-blue">⚡ CYAN</span></td><td>Marcador vertical punteado en la vela exacta de apertura de la bolsa de Nueva York.</td></tr>
+                <tr><td><strong>Flechas de Entrada en Velas</strong></td><td><span class="badge-green">▲ VERDE</span> / <span class="badge-red">▼ ROJO</span></td><td>Flecha gigante arriba (LONG) o abajo (SHORT) indicando contratos y precio exacto de ejecución.</td></tr>
+                <tr><td><strong>Nivel de Precio de Entrada</strong></td><td><code>─── BLANCO</code></td><td>Línea horizontal fija en el precio exacto de entrada al mercado.</td></tr>
+                <tr><td><strong>Stop Loss & Take Profit</strong></td><td><span class="badge-red">🔴 ROJO</span> / <span class="badge-green">🟢 VERDE</span></td><td>Líneas horizontales dinámicas punteadas que se desplazan con la posición.</td></tr>
+                <tr><td><strong>Etapas de Profit Lock (1-4)</strong></td><td><span class="badge-green">💎 DIAMANTE</span></td><td>Marcador de diamante y línea horizontal cuando el sistema bloquea ganancias en cada etapa.</td></tr>
+                <tr><td><strong>Freno Force Flat (15:50 PM)</strong></td><td><span class="badge-orange">⚠ NARANJA</span></td><td>Marcador vertical de cierre forzado de sesión antes del cierre oficial del mercado.</td></tr>
+            </tbody>
+        </table>
+
+        <h3>📋 Desglose Detallado por Secciones y Campos</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Sección del Panel</th>
+                    <th>Elemento / Campo</th>
+                    <th>Explicación Técnica y Función Práctica</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Encabezado Superior</td><td><code>BOT DE APERTURA FUTUROS</code></td><td>Nombre neutro del bot para operar contratos de futuros NQ/MNQ.</td></tr>
+                <tr><td>Encabezado Superior</td><td><code>ESTADO: ACTIVO / LIVE</code></td><td>Muestra <strong>ACTIVO (Verde)</strong> en sesión o <strong>BLOQUEADO POR PROTECCIÓN (Naranja)</strong> fuera de 09:30-15:50 EST.</td></tr>
+                <tr><td>1. Apertura Programada</td><td><code>NY Entry Time (09:30:00)</code></td><td>Hora exacta fija del servidor para la entrada automática en la apertura de Nueva York.</td></tr>
+                <tr><td>1. Apertura Programada</td><td><code>Entry Window (2s)</code></td><td>Tolerancia de 2 segundos. Cancela la orden si sufre deslizamiento o retraso superior a 2s.</td></tr>
+                <tr><td>1. Apertura Programada</td><td><code>Contracts</code></td><td>Lotes asignados automáticamente según el saldo detectado (2 NQ para 50K, 15 NQ para 150K).</td></tr>
+                <tr><td>1. Apertura Programada</td><td><code>Risk / Target ($500 / $2,500)</code></td><td>Mapeo monetario del riesgo inicial y el objetivo de ganancia proyectado del trade.</td></tr>
+                <tr><td>2. Gestión de Riesgo</td><td><code>Stop Loss (103 ticks)</code></td><td>Distancia fija de protección de la orden Stop Loss inicial desde la entrada.</td></tr>
+                <tr><td>2. Gestión de Riesgo</td><td><code>Take Profit (384 ticks)</code></td><td>Distancia fija de la orden Take Profit objetivo desde la entrada.</td></tr>
+                <tr><td>2. Gestión de Riesgo</td><td><code>Max Daily Loss (-$500)</code></td><td><strong>Freno Diario de Pérdida:</strong> Si el acumulado llega a -$500, liquida posiciones y bloquea el bot hoy.</td></tr>
+                <tr><td>2. Gestión de Riesgo</td><td><code>Daily Target (+$1,000)</code></td><td><strong>Freno Diario de Ganancia:</strong> Al alcanzar la meta diaria, apaga el robot para conservar las ganancias.</td></tr>
+                <tr><td>2. Gestión de Riesgo</td><td><code>Force Flat Time (15:50:00)</code></td><td>Cierre forzado pre-cierre. Liquida cualquier posición abierta a las 3:50 PM EST.</td></tr>
+                <tr><td>3. Profit Lock (4 Etapas)</td><td><code>Stage 1 ($600 ➔ $320)</code></td><td>Al ganar $600 ➔ El Trailing Stop sube automáticamente y asegura $320 de beneficio.</td></tr>
+                <tr><td>3. Profit Lock (4 Etapas)</td><td><code>Stage 2 ($1,000 ➔ $820)</code></td><td>Al llegar a $1,000 ➔ Trailing Stop asegura $820.</td></tr>
+                <tr><td>3. Profit Lock (4 Etapas)</td><td><code>Stage 3 ($1,150 ➔ $1,050)</code></td><td>Al llegar a $1,150 ➔ Trailing Stop asegura $1,050.</td></tr>
+                <tr><td>3. Profit Lock (4 Etapas)</td><td><code>Stage 4 ($1,800 ➔ $1,600)</code></td><td>Al llegar a $1,800 ➔ Trailing Stop asegura $1,600 finales.</td></tr>
+                <tr><td>4. Análisis Pre-Apertura</td><td><code>Range Threshold (51 pts)</code></td><td>Mide el rango entre 08:00 y 09:29 AM. Si supera 51 pts, activa el escudo de protección.</td></tr>
+                <tr><td>4. Análisis Pre-Apertura</td><td><code>Shield Status (SAFE)</code></td><td>Muestra <strong>SAFE (Verde)</strong> si el pre-mercado está estable o <strong>ABORT (Rojo)</strong> si la volatilidad es peligrosa.</td></tr>
+            </tbody>
+        </table>
+
+        <h3>🔘 Explicación Botón por Botón (Estrategia)</h3>
+        <table>
+            <thead>
+                <tr><th>Botón</th><th>Color / Estilo</th><th>Acción Inmediata al Hacer Clic</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>FLATTEN & CANCEL ALL</strong></td><td><span class="badge-red">ROJO DE PÁNICO</span></td><td>Cierra inmediatamente cualquier posición abierta al precio actual y cancela órdenes pendientes (SL/TP).</td></tr>
+                <tr><td><strong>PAUSE BOT</strong></td><td><span class="badge-orange">NARANJA CONTROL</span></td><td>Pausa la búsqueda de nuevas entradas sin cerrar la operación que ya esté activa.</td></tr>
+                <tr><td><strong>RESET PnL</strong></td><td><span class="badge-green">VERDE RESET</span></td><td>Reinicia a $0 el contador diario de pérdidas y ganancias para permitir volver a operar si tocó el límite.</td></tr>
+            </tbody>
+        </table>
+
+        <h2>🔄 3. REPLICADOR MULTICUENTA DE FUTUROS (ReplicadorMulticuentaFuturos.cs)</h2>
+        <p>Herramienta avanzada para copiar en tiempo real todas las ejecuciones desde una Cuenta Maestra hacia múltiples Cuentas Esclavas conectadas.</p>
+
+        <div class="img-container">
+            <img src="replicator_en.png" alt="Interfaz Gráfica Completa del Replicador Multicuenta">
+            <div style="color: #94a3b8; font-size: 13px; margin-top: 8px;">Vista del Panel WPF HUD Overlay integrado directamente en el gráfico de NinjaTrader 8.</div>
+        </div>
+
+        <h3>🎨 Dibujado de Réplica en Velas (Chart Painting)</h3>
+        <div class="img-container">
+            <img src="replicator_chart.png" alt="Diagrama de Análisis Visual Dibujado en Velas - Replicador">
+            <div style="color: #94a3b8; font-size: 13px; margin-top: 8px;">Marcadores de replicación de órdenes, niveles de ejecución y estado pintados sobre el gráfico.</div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Elemento Visual en Gráfico</th>
+                    <th>Color / Estilo</th>
+                    <th>Descripción Técnica y Función en Pantalla</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>Fondo Replicación Activa</strong></td><td><span class="badge-green">🟢 VERDE TINT</span></td><td>Fondo de velas teñido suavemente de verde cuando la réplica está encendida y activa.</td></tr>
+                <tr><td><strong>Fondo Replicación Pausada</strong></td><td><span class="badge-orange">🟡 ÁMBAR TINT</span></td><td>Fondo teñido de ámbar con borde naranja cuando la replicación ha sido pausada.</td></tr>
+                <tr><td><strong>Entradas Replicadas</strong></td><td><span class="badge-green">▲ TEAL</span> / <span class="badge-red">▼ ROJO</span></td><td>Flechas arriba/abajo indicando el número de lotes copiado y la cantidad de cuentas esclavas.</td></tr>
+                <tr><td><strong>Nivel Horizontal de Réplica</strong></td><td><code>─ · ─ NVEL</code></td><td>Línea horizontal punteada en el precio exacto donde se ejecutó la copia.</td></tr>
+                <tr><td><strong>Salida Replicada</strong></td><td><span class="badge-orange">◆ DORADO</span></td><td>Marcador de diamante dorado en la vela de cierre o salida de la posición.</td></tr>
+                <tr><td><strong>Consola Status Flotante</strong></td><td><code>[STATUS BOX]</code></td><td>Cuadro flotante en la esquina superior derecha con Maestra, Esclavas conectadas y total de trades.</td></tr>
+            </tbody>
+        </table>
+
+        <h3>📋 Desglose Detallado por Secciones y Campos</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Sección del Panel</th>
+                    <th>Elemento / Campo</th>
+                    <th>Explicación Técnica y Función Práctica</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Navegación Superior</td><td><code>[STATUS] [CUENTAS] [RIESGO]</code></td><td>Pestañas superiores para alternar entre estado de conexión, matriz de cuentas y ajustes.</td></tr>
+                <tr><td>Cuenta Maestra & Modo</td><td><code>Cuenta Maestra (Desplegable)</code></td><td>Selecciona la cuenta líder (ej: <code>Sim101</code> o cuenta principal) desde donde se leen las entradas.</td></tr>
+                <tr><td>Cuenta Maestra & Modo</td><td><code>Copiar Entradas / Salidas</code></td><td>Habilita o deshabilita la copia de compras/ventas iniciales y las salidas parciales/totales.</td></tr>
+                <tr><td>Cuenta Maestra & Modo</td><td><code>Modo Inverso (Reverse Trade)</code></td><td>Si está activo, cuando la Maestra compre, las cuentas esclavas venderán (operación contraria).</td></tr>
+                <tr><td>Cuenta Maestra & Modo</td><td><code>Max Slippage (2 ticks)</code></td><td>Tolerancia de deslizamiento. Cancela la copia si la variación de precio supera 2 ticks.</td></tr>
+                <tr><td>Matriz de Cuentas Esclavas</td><td><code>Auto-Detección de Cuentas</code></td><td>Detecta y muestra automáticamente todas las cuentas conectadas (Apex, Topstep, etc.) en estado <strong>Conectado (Verde)</strong>.</td></tr>
+                <tr><td>Matriz de Cuentas Esclavas</td><td><code>Ratio / Multiplicador</code></td><td>Proporción de lotes por cuenta (<code>1.0x</code> para igualar contratos, <code>0.2x</code> para reducir lotes en 50K).</td></tr>
+                <tr><td>Opciones Avanzadas</td><td><code>Auto-Flatten por Desconexión</code></td><td><strong>Protección Fail-Safe:</strong> Cierra automáticamente las posiciones esclavas si cae la conexión a internet.</td></tr>
+                <tr><td>Opciones Avanzadas</td><td><code>Sincronizar Cierre ATM</code></td><td>Replica exactamente los Stop Loss y Take Profits nativos de la cuenta Maestra en todas las esclavas.</td></tr>
+                <tr><td>Consola Inferior</td><td><code>Registro en Tiempo Real</code></td><td>Log en vivo que imprime cada orden replicada, hora exacta, cuenta destino y milisegundos de latencia.</td></tr>
+            </tbody>
+        </table>
+
+        <h3>🔘 Explicación Botón por Botón (Replicador)</h3>
+        <table>
+            <thead>
+                <tr><th>Botón</th><th>Color / Estilo</th><th>Acción Inmediata al Hacer Clic</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>FLATTEN ALL SLAVES & PAUSE</strong></td><td><span class="badge-red">ROJO DE PÁNICO</span></td><td>Cierra inmediatamente las posiciones en <strong>TODAS</strong> las cuentas de fondeo conectadas en 1 solo clic.</td></tr>
+                <tr><td><strong>ACTIVAR REPLICACIÓN</strong></td><td><span class="badge-green">VERDE ESTADO</span></td><td>Enciende o apaga la copia de órdenes entre la cuenta Maestra y las esclavas en tiempo real.</td></tr>
+                <tr><td><strong>RE-SINCRONIZAR POSICIONES</strong></td><td><span class="badge-blue">AZUL SINCRO</span></td><td>Compara el inventario de contratos y fuerza la igualación exacta entre la cuenta Maestra y las esclavas.</td></tr>
+            </tbody>
+        </table>
+
+        <h2>🛡️ 4. PROTECCIÓN OBLIGATORIA DE HORARIO DE MERCADO</h2>
+        <div class="card-alert">
+            <p>Ambos bots operan bajo una estricta ventana de seguridad de <strong>09:30:00 AM EST a 15:50:00 PM EST</strong>. Si intentas activar o dejar corriendo la estrategia fuera de esa ventana (noches, madrugadas o fines de semana), aparecerá el aviso en naranja <code>ESTADO: BLOQUEADO POR PROTECCIÓN (FUERA DE HORARIO 09:30-15:50)</code> para evitar ejecuciones accidentales con el mercado cerrado.</p>
+        </div>
+    </div>
+</body>
+</html>

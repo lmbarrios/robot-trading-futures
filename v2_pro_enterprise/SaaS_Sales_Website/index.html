@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ApexTrader AI &bull; Next-Gen Futures Trading Automation & Licensing Portal</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+
+        :root {
+            --bg-dark: #0B0F19;
+            --card-bg: #151C2C;
+            --primary: #0284C7;
+            --primary-glow: rgba(2, 132, 199, 0.4);
+            --accent-green: #10B981;
+            --accent-purple: #8B5CF6;
+            --accent-gold: #F59E0B;
+            --text-main: #F8FAFC;
+            --text-muted: #94A3B8;
+            --border-color: rgba(255, 255, 255, 0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); line-height: 1.6; overflow-x: hidden; }
+
+        /* Header Navigation */
+        header {
+            display: flex; justify-content: space-between; align-items: center; padding: 20px 8%;
+            border-bottom: 1px solid var(--border-color); background: rgba(11, 15, 25, 0.85);
+            backdrop-filter: blur(12px); position: fixed; top: 0; width: 100%; z-index: 100;
+        }
+
+        .logo { font-size: 22px; font-weight: 800; color: var(--text-main); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+        .logo span { color: var(--primary); }
+
+        nav a { color: var(--text-muted); text-decoration: none; margin: 0 16px; font-weight: 600; font-size: 14.5px; transition: color 0.3s; }
+        nav a:hover { color: var(--primary); }
+
+        .btn-cta {
+            background: linear-gradient(135deg, #0284C7, #0369A1); color: white; padding: 12px 24px;
+            border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14.5px;
+            box-shadow: 0 4px 20px var(--primary-glow); transition: transform 0.2s, box-shadow 0.2s; border: none; cursor: pointer;
+        }
+
+        .btn-cta:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(2, 132, 199, 0.6); }
+
+        /* Hero Section */
+        .hero {
+            padding: 160px 8% 80px; text-align: center;
+            background: radial-gradient(circle at 50% 20%, rgba(2, 132, 199, 0.15), transparent 60%);
+        }
+
+        .badge-hero {
+            display: inline-block; background: rgba(2, 132, 199, 0.15); border: 1px solid rgba(2, 132, 199, 0.4);
+            color: var(--primary); padding: 6px 16px; border-radius: 50px; font-size: 13px; font-weight: 700;
+            margin-bottom: 24px; text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        .hero h1 { font-size: 54px; font-weight: 800; line-height: 1.15; margin-bottom: 24px; letter-spacing: -1.5px; }
+        .hero h1 span { background: linear-gradient(135deg, #38BDF8, #818CF8); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero p { font-size: 19px; color: var(--text-muted); max-width: 750px; margin: 0 auto 35px; }
+
+        /* Product Selector Tabs */
+        .product-tabs-container { padding: 40px 8%; text-align: center; }
+        .product-tab-buttons { display: inline-flex; background: #151C2C; padding: 6px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 40px; }
+        .tab-btn {
+            background: transparent; color: var(--text-muted); border: none; padding: 14px 28px;
+            border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; transition: all 0.3s;
+        }
+        .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 15px var(--primary-glow); }
+
+        /* Pricing Grid */
+        .pricing-section { padding: 40px 8% 100px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
+
+        .pricing-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); padding: 40px 30px;
+            border-radius: 20px; text-align: center; position: relative; transition: transform 0.3s;
+        }
+        .pricing-card:hover { transform: translateY(-5px); border-color: var(--primary); }
+        .pricing-card.popular { border: 2px solid var(--primary); box-shadow: 0 10px 40px var(--primary-glow); }
+        .pricing-card.enterprise { border: 2px solid var(--accent-gold); box-shadow: 0 10px 40px rgba(245, 158, 11, 0.2); }
+
+        .popular-badge {
+            position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
+            background: var(--primary); color: white; padding: 4px 16px; border-radius: 50px;
+            font-size: 12px; font-weight: 800; text-transform: uppercase;
+        }
+        .badge-gold { background: var(--accent-gold); }
+
+        .price { font-size: 46px; font-weight: 800; margin: 20px 0 10px; color: white; }
+        .price span { font-size: 15px; color: var(--text-muted); font-weight: 400; }
+
+        .feature-list { list-style: none; text-align: left; margin: 25px 0 35px; }
+        .feature-list li { padding: 8px 0; color: var(--text-muted); font-size: 14.5px; display: flex; align-items: center; gap: 10px; }
+        .feature-list li strong { color: white; }
+
+        /* Modal Overlay for Purchase & Account Registration */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(7, 10, 16, 0.85); backdrop-filter: blur(8px);
+            display: none; justify-content: center; align-items: center; z-index: 1000;
+        }
+
+        .modal-card {
+            background: #151C2C; border: 1px solid var(--primary); width: 90%; max-width: 480px;
+            padding: 35px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6); position: relative;
+        }
+
+        .modal-card h3 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+        .modal-card p { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; }
+
+        .form-group { margin-bottom: 18px; text-align: left; }
+        .form-group label { display: block; font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
+        .form-group input {
+            width: 100%; padding: 12px 16px; background: #0B0F19; border: 1px solid var(--border-color);
+            border-radius: 8px; color: white; font-size: 14px; outline: none;
+        }
+        .form-group input:focus { border-color: var(--primary); }
+
+        .close-modal { position: absolute; top: 20px; right: 20px; background: transparent; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="#" class="logo">⚡ ApexTrader<span>.AI</span></a>
+        <nav>
+            <a href="#products">Products & Pricing</a>
+            <a href="auth.html">Sign In / Register</a>
+            <a href="../SaaS_Client_Portal/index.html">Client Portal</a>
+            <a href="../SaaS_Admin_Dashboard/index.html">Owner Admin</a>
+        </nav>
+        <a href="auth.html" class="btn-cta">Sign In / Join VIP ➔</a>
+    </header>
+
+    <section class="hero">
+        <div class="badge-hero">🚀 Institutional Trading Automation & Replicator</div>
+        <h1>Replicate Prop Accounts & <span>Automate NQ Market Open</span></h1>
+        <p>Zero-latency multi-account trade replicator starting at $99/mo, followed by our high-performance Market Opening Bot ($300/mo) and Ultimate Trader Bundle.</p>
+    </section>
+
+    <!-- Product Selection Tabs (Ordered by Lowest Price First) -->
+    <section class="product-tabs-container" id="products">
+        <h2 style="font-size: 34px; font-weight: 800; margin-bottom: 16px;">Choose Your Automation Tool</h2>
+        <p style="color: var(--text-muted); font-size: 17px; margin-bottom: 30px;">Multi-Account Replicator (1st: $99+/mo) ➔ Market Opening Bot (2nd: $300+/mo) ➔ Ultimate Bundle (3rd: $499/mo)</p>
+
+        <div class="product-tab-buttons">
+            <button class="tab-btn active" onclick="switchProduct('replicator')">1️⃣ Multi-Account Replicator ($99+/mo)</button>
+            <button class="tab-btn" onclick="switchProduct('bot')">2️⃣ Market Opening Bot ($300+/mo)</button>
+            <button class="tab-btn" onclick="switchProduct('bundle')">3️⃣ Ultimate Trader Bundle ($499/mo)</button>
+        </div>
+    </section>
+
+    <!-- Product 1 (FIRST): Multi-Account Replicator (Lowest Price: $99/mo) -->
+    <section class="pricing-section" id="pricing-replicator">
+        <div class="grid-3">
+            <div class="pricing-card">
+                <h3 style="font-size: 22px;">Replicator Starter</h3>
+                <div class="price">$99 <span>/month</span></div>
+                <p style="color: var(--text-muted); font-size: 14px;">Replicate trades across up to 3 slave accounts.</p>
+                <ul class="feature-list">
+                    <li>✅ <strong>Up to 3 Slave Accounts</strong> ($99/mo)</li>
+                    <li>✅ 2-Tick Max Slippage Shield</li>
+                    <li>✅ Duplicate Order Hash Guard</li>
+                    <li>✅ Auto-Detection of Connected Accounts</li>
+                    <li>💬 VIP WhatsApp Trader Community Access</li>
+                </ul>
+                <button class="btn-cta" style="width: 100%;" onclick="openCheckoutModal('Multi-Account Replicator (Starter)', '$99/mo')">Buy Replicator Starter ($99/mo)</button>
+            </div>
+
+            <div class="pricing-card popular">
+                <div class="popular-badge">Most Popular</div>
+                <h3 style="font-size: 22px;">Replicator Pro</h3>
+                <div class="price">$199 <span>/month</span></div>
+                <p style="color: var(--text-muted); font-size: 14px;">Replicate trades across up to 10 slave accounts.</p>
+                <ul class="feature-list">
+                    <li>✅ <strong>Up to 10 Slave Accounts</strong> ($199/mo)</li>
+                    <li>✅ 2-Tick Max Slippage & Latency Shield</li>
+                    <li>✅ Fail-Safe Disconnect Auto-Flattening</li>
+                    <li>✅ Custom Ratio Contract Multipliers</li>
+                    <li>💬 VIP WhatsApp & Telegram Group Access</li>
+                </ul>
+                <button class="btn-cta" style="width: 100%;" onclick="openCheckoutModal('Multi-Account Replicator (Pro)', '$199/mo')">Buy Replicator Pro ($199/mo)</button>
+            </div>
+
+            <div class="pricing-card enterprise">
+                <div class="popular-badge badge-gold">Unlimited</div>
+                <h3 style="font-size: 22px;">Replicator Master</h3>
+                <div class="price">$299 <span>/month</span></div>
+                <p style="color: var(--text-muted); font-size: 14px;">Unlimited accounts for prop firm traders.</p>
+                <ul class="feature-list">
+                    <li>✅ <strong>UNLIMITED Slave Accounts</strong> ($299/mo)</li>
+                    <li>✅ Real-Time Latency Watchdog Console</li>
+                    <li>💬 Direct WhatsApp VIP Support Line</li>
+                </ul>
+                <button class="btn-cta" style="width: 100%; background: linear-gradient(135deg, #F59E0B, #D97706);" onclick="openCheckoutModal('Multi-Account Replicator (Master)', '$299/mo')">Buy Replicator Master ($299/mo)</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Product 2 (SECOND): Market Opening Bot ($300+/mo) -->
+    <section class="pricing-section" id="pricing-bot" style="display: none;">
+        <div class="grid-3">
+            <div class="pricing-card">
+                <h3 style="font-size: 22px;">1 Account License</h3>
+                <div class="price">$300 <span>/month</span></div>
+                <p style="color: var(--text-muted); font-size: 14px;">Ideal for traders scaling a primary 50K or 100K evaluation account.</p>
+                <ul class="feature-list">
+                    <li>✅ <strong>1 Active Account License</strong> ($300/mo)</li>
+                    <li>✅ Smart Account Auto-Detection ($50K/$100K/$150K)</li>
+                    <li>✅ Funded Drawdown Hard Guard Protection</li>
+                    <li>✅ Red-Folder News Guard (CPI/NFP/FOMC)</li>
+                    <li>💬 VIP WhatsApp Trader Community Access</li>
+                </ul>
+                <button class="btn-cta" style="width: 100%;" onclick="openCheckoutModal('Market Opening Bot (1 Account)', '$300/mo')">Buy 1 Account License ($300/mo)</button>
+            </div>
+
+            <div class="pricing-card popular">
+                <div class="popular-badge">Most Popular</div>
+                <h3 style="font-size: 22px;">3 Accounts Pack</h3>
+                <div class="price">$599 <span>/month</span></div>
+                <p style="color: var(--text-muted); font-size: 14px;">Save $301/mo for traders operating multiple prop firm accounts.</p>
+                <ul class="feature-list">
+                    <li>✅ <strong>3 Active Account Licenses</strong> ($199/acc)</li>
+                    <li>✅ Full Funded Drawdown Hard Guard</li>
+                    <li>✅ Red-Folder News Guard (CPI/NFP/FOMC)</li>
+                    <li>💬 VIP WhatsApp & Telegram Group Access</li>
+                </ul>
+                <button class="btn-cta" style="width: 100%;" onclick="openCheckoutModal('Market Opening Bot (3 Accounts)', '$599/mo')">Buy 3 Accounts License ($599/mo)</button>
+            </div>
+
+            <div class="pricing-card enterprise">
+                <div class="popular-badge badge-gold">Prop Master</div>
+                <h3 style="font-size: 22px;">Unlimited Accounts</h3>
+                <div class="price">$999 <span>/month</span></div>
+                <p style="color: var(--text-muted); font-size: 14px;">Unlimited accounts for institutional prop firm portfolio managers.</p>
+                <ul class="feature-list">
+                    <li>✅ <strong>UNLIMITED Account Licenses</strong> ($999/mo)</li>
+                    <li>✅ Complete Security Suite & News Guard</li>
+                    <li>💬 Direct WhatsApp VIP Support Line</li>
+                </ul>
+                <button class="btn-cta" style="width: 100%; background: linear-gradient(135deg, #F59E0B, #D97706);" onclick="openCheckoutModal('Market Opening Bot (Unlimited)', '$999/mo')">Buy Unlimited License ($999/mo)</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Product 3 (THIRD): Ultimate Trader Bundle ($499/mo) -->
+    <section class="pricing-section" id="pricing-bundle" style="display: none;">
+        <div style="max-width: 600px; margin: 0 auto;">
+            <div class="pricing-card popular" style="padding: 50px;">
+                <div class="popular-badge">Best Value Suite</div>
+                <h3 style="font-size: 28px;">Ultimate Trader Bundle</h3>
+                <div class="price">$499 <span>/month</span></div>
+                <p style="color: var(--text-muted); font-size: 16px; margin-bottom: 25px;">Combines the Market Opening Bot ($300/mo) AND the Multi-Account Replicator ($199/mo) into one discounted package.</p>
+                <ul class="feature-list">
+                    <li>✅ <strong>Both Enterprise Software Packages (.zip)</strong></li>
+                    <li>✅ Market Opening Bot (Unlimited Accounts)</li>
+                    <li>✅ Multi-Account Replicator (Unlimited Accounts)</li>
+                    <li>💬 VIP WhatsApp & Telegram Signal Group Invites</li>
+                </ul>
+                <button class="btn-cta" style="width: 100%; font-size: 18px; padding: 16px;" onclick="openCheckoutModal('Ultimate Trader Bundle', '$499/mo')">Get Ultimate Bundle ($499/mo) ➔</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Checkout Modal -->
+    <div class="modal-overlay" id="checkoutModal">
+        <div class="modal-card">
+            <button class="close-modal" onclick="closeCheckoutModal()">✕</button>
+            <h3 id="modalProductName">Complete Order & Register Account</h3>
+            <p>Enter your contact details to register your license and receive your VIP WhatsApp Community invite.</p>
+
+            <form onsubmit="processPurchase(event)">
+                <div class="form-group">
+                    <label>Selected Package</label>
+                    <input type="text" id="modalPriceInput" readonly value="$99/mo" style="color: #38BDF8; font-weight: bold;">
+                </div>
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" placeholder="e.g. Alex Miller" required id="custName">
+                </div>
+                <div class="form-group">
+                    <label>Customer Email (Used for NT8 Bot License Verification)</label>
+                    <input type="email" placeholder="alex.miller@example.com" required id="custEmail">
+                </div>
+                <div class="form-group">
+                    <label>WhatsApp / Phone Number (For VIP Community & Alerts)</label>
+                    <input type="tel" placeholder="+1 (555) 019-2834" required id="custPhone">
+                </div>
+                <div class="form-group">
+                    <label>Credit Card Number (Simulated Checkout)</label>
+                    <input type="text" value="•••• •••• •••• 4242" required>
+                </div>
+                <button type="submit" class="btn-cta" style="width: 100%; font-size: 16px; padding: 14px; margin-top: 10px;">Pay & Join VIP Community ➔</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function switchProduct(product) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('pricing-replicator').style.display = 'none';
+            document.getElementById('pricing-bot').style.display = 'none';
+            document.getElementById('pricing-bundle').style.display = 'none';
+
+            if (product === 'replicator') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('pricing-replicator').style.display = 'block';
+            } else if (product === 'bot') {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('pricing-bot').style.display = 'block';
+            } else if (product === 'bundle') {
+                document.querySelectorAll('.tab-btn')[2].classList.add('active');
+                document.getElementById('pricing-bundle').style.display = 'block';
+            }
+        }
+
+        function openCheckoutModal(productName, price) {
+            document.getElementById('modalProductName').innerText = 'Checkout: ' + productName;
+            document.getElementById('modalPriceInput').value = productName + ' - ' + price;
+            document.getElementById('checkoutModal').style.display = 'flex';
+        }
+
+        function closeCheckoutModal() {
+            document.getElementById('checkoutModal').style.display = 'none';
+        }
+
+        function processPurchase(e) {
+            e.preventDefault();
+            const email = document.getElementById('custEmail').value;
+            const name = document.getElementById('custName').value;
+            const phone = document.getElementById('custPhone').value;
+            
+            localStorage.setItem('apex_user_authenticated', 'true');
+            localStorage.setItem('apex_user_paid', 'true');
+            localStorage.setItem('apex_user_email', email);
+            localStorage.setItem('apex_user_name', name);
+            localStorage.setItem('apex_user_phone', phone);
+
+            alert('Payment Successful! Welcome to ApexTrader.AI VIP. Redirecting to your Client Dashboard...');
+            window.location.href = '../SaaS_Client_Portal/index.html?paid=true&email=' + encodeURIComponent(email);
+        }
+    </script>
+
+</body>
+</html>

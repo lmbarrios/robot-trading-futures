@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Futures Market Opening Bot v2</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "tertiary-fixed-dim": "#4edea3",
+                      "outline-variant": "#45464d",
+                      "secondary-fixed": "#cce5ff",
+                      "on-surface": "#d4e4fa",
+                      "primary-fixed": "#dae2fd",
+                      "primary-container": "#0f172a",
+                      "surface-variant": "#273647",
+                      "inverse-surface": "#d4e4fa",
+                      "primary": "#bec6e0",
+                      "tertiary-fixed": "#6ffbbe",
+                      "surface-tint": "#bec6e0",
+                      "surface-container-highest": "#273647",
+                      "on-secondary-fixed": "#001d31",
+                      "tertiary": "#4edea3",
+                      "on-secondary": "#003351",
+                      "surface-container-low": "#0d1c2d",
+                      "secondary-fixed-dim": "#93ccff",
+                      "surface": "#051424",
+                      "error": "#ffb4ab",
+                      "on-primary-fixed-variant": "#3f465c",
+                      "secondary": "#93ccff",
+                      "on-secondary-container": "#002c47",
+                      "secondary-container": "#3198dc",
+                      "on-error-container": "#ffdad6",
+                      "on-tertiary-fixed-variant": "#005236",
+                      "outline": "#909097",
+                      "on-error": "#690005",
+                      "primary-fixed-dim": "#bec6e0",
+                      "on-tertiary-fixed": "#002113",
+                      "on-secondary-fixed-variant": "#004b73",
+                      "surface-container-lowest": "#010f1f",
+                      "surface-dim": "#051424",
+                      "tertiary-container": "#001c10",
+                      "on-tertiary-container": "#009365",
+                      "on-primary-container": "#798098",
+                      "surface-container": "#122131",
+                      "background": "#051424",
+                      "inverse-primary": "#565e74",
+                      "on-primary": "#283044",
+                      "surface-bright": "#2c3a4c",
+                      "surface-container-high": "#1c2b3c",
+                      "on-primary-fixed": "#131b2e",
+                      "inverse-on-surface": "#233143",
+                      "on-surface-variant": "#c6c6cd",
+                      "error-container": "#93000a",
+                      "on-tertiary": "#003824",
+                      "on-background": "#d4e4fa"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "container-padding": "12px",
+                      "margin": "24px",
+                      "unit": "4px",
+                      "gutter": "16px"
+              },
+              "fontFamily": {
+                      "headline-lg": [
+                              "Geist"
+                      ],
+                      "data-md": [
+                              "JetBrains Mono"
+                      ],
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "label-sm": [
+                              "JetBrains Mono"
+                      ],
+                      "body-lg": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Geist"
+                      ],
+                      "data-lg": [
+                              "JetBrains Mono"
+                      ]
+              },
+              "fontSize": {
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "data-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "18px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "11px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "data-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        body {
+            background-color: #0F172A; /* Deep Slate Base */
+            color: #d4e4fa;
+        }
+        
+        .glass-card {
+            background-color: rgba(190, 198, 224, 0.05); /* Primary fixed dim @ low opacity for dark mode feel */
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .glass-card-active {
+            background-color: rgba(190, 198, 224, 0.08);
+            backdrop-filter: blur(16px);
+            border: 1px solid #0284C7; /* Neon Glow Border */
+            box-shadow: 0 0 8px 0px rgba(2, 132, 199, 0.5);
+        }
+
+        .hud-input {
+            background-color: rgba(190, 198, 224, 0.1);
+            border: 1px solid #45464d; /* slate border */
+            color: #d4e4fa;
+        }
+        
+        .hud-input:focus {
+            border-color: #0284C7;
+            outline: none;
+            box-shadow: 0 0 4px 0px rgba(2, 132, 199, 0.5);
+        }
+
+        .led-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .led-active {
+            background-color: #10B981; /* Emerald Green */
+            box-shadow: 0 0 8px 0px #10B981;
+            animation: pulse-green 2s infinite;
+        }
+
+        .led-safe {
+             background-color: #10B981; /* Emerald Green */
+            box-shadow: 0 0 8px 0px #10B981;
+        }
+
+        .led-disconnected {
+            background-color: #EF4444; /* Panic Red */
+            box-shadow: 0 0 8px 0px #EF4444;
+        }
+        
+        .led-syncing {
+            background-color: #F59E0B; /* Alert Orange */
+            box-shadow: 0 0 8px 0px #F59E0B;
+            animation: rotate-orange 1.5s linear infinite;
+        }
+
+        @keyframes pulse-green {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* Scanline effect */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.1) 50%,
+                rgba(0,0,0,0.1)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.15;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0F172A; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #45464d; 
+            border-radius: 2px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #0284C7; 
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body-md text-body-md bg-primary-container min-h-screen relative overflow-hidden flex justify-center items-center p-unit">
+<div class="scanlines"></div>
+<!-- Mobile HUD Container (Overlay Simulation) -->
+<main class="w-full max-w-[420px] h-[850px] relative flex flex-col z-10 bg-surface/40 backdrop-blur-3xl rounded-xl border border-white/10 shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden">
+<!-- Header -->
+<header class="flex-none p-container-padding border-b border-white/10 bg-surface-container-lowest/80 backdrop-blur-xl flex flex-col gap-unit relative">
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#0284C7] to-transparent opacity-50"></div>
+<div class="flex justify-between items-start">
+<div>
+<h1 class="font-headline-md text-headline-md font-bold tracking-tighter text-secondary">FUTURES MARKET OPENING BOT v2</h1>
+<div class="flex items-center gap-2 mt-1">
+<span class="led-indicator led-active"></span>
+<span class="font-label-sm text-label-sm text-tertiary uppercase tracking-widest">STATE: ACTIVE / LIVE</span>
+</div>
+</div>
+<button aria-label="Settings" class="text-outline-variant hover:text-secondary transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+</button>
+</div>
+<!-- Connection Status Mini-Bar -->
+<div class="flex items-center gap-4 mt-2 border-t border-white/5 pt-2">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-secondary">wifi</span>
+<span class="font-data-md text-data-md text-outline">NY-DC1: 12ms</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px] text-tertiary">memory</span>
+<span class="font-data-md text-data-md text-outline">CPU: 4%</span>
+</div>
+</div>
+</header>
+<!-- Scrollable Content Canvas -->
+<div class="flex-1 overflow-y-auto p-gutter flex flex-col gap-gutter">
+<!-- Card 1: Entry Specs -->
+<section class="glass-card-active rounded-lg p-container-padding flex flex-col gap-3 relative">
+<div class="absolute top-2 right-2 flex items-center gap-1">
+<span class="led-indicator led-active"></span>
+</div>
+<header class="flex items-center gap-2 border-b border-white/5 pb-2">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">timer</span>
+<h2 class="font-data-lg text-data-lg text-on-surface uppercase tracking-wider">Entry Specs</h2>
+</header>
+<div class="grid grid-cols-2 gap-3">
+<div class="flex flex-col gap-1 col-span-2">
+<label class="font-label-sm text-label-sm text-outline uppercase">NY Entry Time</label>
+<div class="flex relative">
+<input class="hud-input w-full font-data-md text-data-md rounded px-2 py-1.5 focus:ring-0 text-secondary pl-8" readonly="" type="text" value="09:30:00"/>
+<span class="material-symbols-outlined absolute left-2 top-1.5 text-outline text-[18px]">schedule</span>
+<span class="absolute right-2 top-1.5 font-label-sm text-label-sm text-outline mt-0.5">AM</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-sm text-label-sm text-outline uppercase">Contracts</label>
+<input class="hud-input w-full font-data-md text-data-md rounded px-2 py-1.5 focus:ring-0 text-center" type="number" value="2"/>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-sm text-label-sm text-outline uppercase">Instrument</label>
+<select class="hud-input w-full font-data-md text-data-md rounded px-2 py-1.5 focus:ring-0 appearance-none bg-transparent">
+<option value="NQ">NQ</option>
+<option value="ES">ES</option>
+<option value="YM">YM</option>
+</select>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-sm text-label-sm text-outline uppercase">Risk (Ticks)</label>
+<input class="hud-input w-full font-data-md text-data-md rounded px-2 py-1.5 focus:ring-0 text-center text-error" type="number" value="40"/>
+</div>
+<div class="flex flex-col gap-1">
+<label class="font-label-sm text-label-sm text-outline uppercase">Target (Ticks)</label>
+<input class="hud-input w-full font-data-md text-data-md rounded px-2 py-1.5 focus:ring-0 text-center text-tertiary" type="number" value="80"/>
+</div>
+</div>
+</section>
+<!-- Card 2: Performance Parameters -->
+<section class="glass-card rounded-lg p-container-padding flex flex-col gap-3">
+<header class="flex items-center gap-2 border-b border-white/5 pb-2">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">monitoring</span>
+<h2 class="font-data-lg text-data-lg text-on-surface uppercase tracking-wider">Performance Guard</h2>
+</header>
+<div class="flex flex-col gap-3">
+<div class="flex justify-between items-center border-b border-white/5 pb-2">
+<span class="font-body-md text-body-md text-outline">Current PNL</span>
+<span class="font-data-lg text-data-lg text-tertiary">+$350.00</span>
+</div>
+<div class="grid grid-cols-2 gap-x-4 gap-y-3">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-outline uppercase">Max Daily Loss</span>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-error">arrow_downward</span>
+<span class="font-data-md text-data-md text-error">-$500</span>
+</div>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label-sm text-label-sm text-outline uppercase">Daily Target</span>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-tertiary">arrow_upward</span>
+<span class="font-data-md text-data-md text-tertiary">+$1000</span>
+</div>
+</div>
+</div>
+<!-- Progress towards daily target -->
+<div class="flex flex-col gap-1 mt-1">
+<div class="flex justify-between font-label-sm text-label-sm">
+<span class="text-outline">Progress</span>
+<span class="text-secondary">35%</span>
+</div>
+<div class="w-full bg-surface-container-high rounded-full h-1.5 overflow-hidden">
+<div class="bg-secondary h-1.5 rounded-full shadow-[0_0_4px_0px_#93ccff]" style="width: 35%"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Card 3: Trailing Stop Logic -->
+<section class="glass-card rounded-lg p-container-padding flex flex-col gap-3">
+<header class="flex items-center gap-2 border-b border-white/5 pb-2">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">route</span>
+<h2 class="font-data-lg text-data-lg text-on-surface uppercase tracking-wider">Trailing Stop</h2>
+</header>
+<div class="flex flex-col gap-4">
+<!-- Stage Bar -->
+<div class="relative w-full h-8 flex items-center justify-between px-2">
+<!-- Connecting Line -->
+<div class="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-0.5 bg-surface-container-highest z-0"></div>
+<div class="absolute left-4 right-1/2 top-1/2 -translate-y-1/2 h-0.5 bg-secondary z-0 shadow-[0_0_4px_0px_#93ccff]"></div>
+<!-- Nodes -->
+<div class="relative z-10 flex flex-col items-center">
+<div class="w-4 h-4 rounded-full bg-secondary border-2 border-primary-container shadow-[0_0_6px_0px_#93ccff]"></div>
+<span class="absolute top-6 font-label-sm text-label-sm text-secondary whitespace-nowrap">Entry</span>
+</div>
+<div class="relative z-10 flex flex-col items-center">
+<div class="w-4 h-4 rounded-full bg-secondary border-2 border-primary-container shadow-[0_0_6px_0px_#93ccff]"></div>
+<span class="absolute top-6 font-label-sm text-label-sm text-secondary whitespace-nowrap">BE+1</span>
+</div>
+<div class="relative z-10 flex flex-col items-center">
+<div class="w-4 h-4 rounded-full bg-surface-container-highest border-2 border-primary-container"></div>
+<span class="absolute top-6 font-label-sm text-label-sm text-outline whitespace-nowrap">Lock 50%</span>
+</div>
+<div class="relative z-10 flex flex-col items-center">
+<div class="w-4 h-4 rounded-full bg-surface-container-highest border-2 border-primary-container"></div>
+<span class="absolute top-6 font-label-sm text-label-sm text-outline whitespace-nowrap">Runner</span>
+</div>
+</div>
+<div class="mt-4 bg-surface-container-high/50 p-2 rounded border border-white/5 flex justify-between items-center">
+<span class="font-label-sm text-label-sm text-outline">Current Status:</span>
+<span class="font-data-md text-data-md text-secondary">Break Even Locked</span>
+</div>
+</div>
+</section>
+<!-- Card 4: System Analysis -->
+<section class="glass-card rounded-lg p-container-padding flex flex-col gap-3">
+<header class="flex items-center justify-between border-b border-white/5 pb-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">security</span>
+<h2 class="font-data-lg text-data-lg text-on-surface uppercase tracking-wider">Volatility Shield</h2>
+</div>
+<div class="flex items-center gap-1.5 bg-tertiary/10 px-2 py-0.5 rounded border border-tertiary/20">
+<span class="led-indicator led-safe"></span>
+<span class="font-label-sm text-label-sm text-tertiary uppercase font-bold">SAFE</span>
+</div>
+</header>
+<div class="grid grid-cols-2 gap-2 text-sm">
+<div class="flex flex-col bg-surface-container-high/30 p-2 rounded">
+<span class="font-label-sm text-label-sm text-outline uppercase">VIX Proxy</span>
+<span class="font-data-md text-data-md text-on-surface">14.2</span>
+</div>
+<div class="flex flex-col bg-surface-container-high/30 p-2 rounded">
+<span class="font-label-sm text-label-sm text-outline uppercase">News Filter</span>
+<span class="font-data-md text-data-md text-tertiary">Clear (2h)</span>
+</div>
+</div>
+</section>
+</div>
+<!-- Action Footer -->
+<footer class="flex-none p-gutter bg-surface-container-lowest/90 backdrop-blur-xl border-t border-white/10 flex flex-col gap-2 relative z-20">
+<!-- Ghost/Tactical Secondary Controls -->
+<div class="flex gap-2 w-full">
+<button class="flex-1 bg-transparent border border-[#F59E0B] text-[#F59E0B] font-data-md text-data-md uppercase py-2 rounded hover:bg-[#F59E0B]/10 transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">pause</span>
+                    PAUSE BOT
+                </button>
+<button class="flex-1 bg-transparent border border-tertiary text-tertiary font-data-md text-data-md uppercase py-2 rounded hover:bg-tertiary/10 transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">restart_alt</span>
+                    RESET PNL
+                </button>
+</div>
+<!-- Panic Button -->
+<button class="w-full bg-[#EF4444] text-white font-headline-md text-headline-md uppercase py-3 rounded shadow-[0_0_12px_0px_rgba(239,68,68,0.4)] hover:bg-[#DC2626] hover:shadow-[0_0_16px_0px_rgba(239,68,68,0.6)] transition-all flex items-center justify-center gap-2 active:scale-[0.98]">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">warning</span>
+                FLATTEN &amp; CANCEL ALL
+            </button>
+</footer>
+</main>
+<script>
+        // Simple script to demonstrate active states or interactions if needed.
+        // Currently handled primarily via CSS active/hover states.
+    </script>
+</body></html>

@@ -1,0 +1,6 @@
+# Temporary and cache files
+scratch/
+.tmp/
+*.tmp
+*.log
+.DS_Store

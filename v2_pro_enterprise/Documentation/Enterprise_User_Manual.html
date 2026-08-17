@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ApexTrader.AI — Enterprise Suite Technical User Manual</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+
+        :root {
+            --navy:   #0A1929;
+            --blue:   #3198DC;
+            --green:  #10B981;
+            --amber:  #F59E0B;
+            --red:    #EF4444;
+            --purple: #9B59B6;
+            --text:   #0f172a;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            max-width: 1060px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #f1f5f9;
+        }
+
+        .container {
+            background: #ffffff;
+            padding: 48px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px -8px rgba(0,0,0,0.12);
+        }
+
+        /* ── Header ── */
+        .header {
+            text-align: center;
+            border-bottom: 3px solid var(--blue);
+            padding-bottom: 24px;
+            margin-bottom: 36px;
+        }
+        .badge {
+            display: inline-block;
+            background: var(--navy);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            padding: 4px 14px;
+            border-radius: 20px;
+            margin-bottom: 14px;
+        }
+        h1 { color: var(--navy); font-size: 28px; font-weight: 800; margin: 0 0 8px 0; text-transform: uppercase; }
+        .subtitle { color: var(--blue); font-size: 15px; font-weight: 600; }
+
+        /* ── Section headings ── */
+        h2 {
+            color: var(--navy);
+            font-size: 20px;
+            font-weight: 700;
+            margin-top: 42px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+        h3 { font-size: 15px; font-weight: 600; margin-top: 22px; color: #1e293b; }
+
+        /* ── Product header bar ── */
+        .product-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--navy);
+            color: #fff;
+            padding: 14px 20px;
+            border-radius: 10px 10px 0 0;
+            margin-top: 36px;
+        }
+        .product-header .dot { font-size: 22px; }
+        .product-header h2   { color: #fff; border: none; margin: 0; font-size: 17px; }
+        .product-header .pill {
+            margin-left: auto;
+            background: #0D2B1A;
+            border: 1.5px solid #00E676;
+            color: #00E676;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 14px;
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+        .product-body {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            padding: 24px;
+            margin-bottom: 8px;
+        }
+
+        /* ── Interface Preview Block ── */
+        .interface-preview {
+            background: var(--navy);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0 28px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+        .interface-preview .preview-label {
+            color: #94a3b8;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            align-self: flex-start;
+        }
+        .interface-preview img {
+            max-width: 100%;
+            border-radius: 8px;
+            border: 2px solid #1E4D78;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .interface-preview .caption {
+            color: #64748b;
+            font-size: 12px;
+            font-style: italic;
+            text-align: center;
+        }
+
+        /* ── Tables ── */
+        table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13.5px; }
+        th { background: var(--navy); color: #fff; padding: 10px 14px; text-align: left; font-weight: 600; }
+        td { padding: 9px 14px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+        tr:nth-child(even) td { background: #f8fafc; }
+
+        .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; letter-spacing: 0.5px; }
+        .tag-blue   { background: #EFF6FF; color: #1D4ED8; }
+        .tag-green  { background: #F0FDF4; color: #166534; }
+        .tag-amber  { background: #FFFBEB; color: #92400E; }
+        .tag-red    { background: #FFF5F5; color: #991B1B; }
+
+        /* ── Install steps ── */
+        .steps { counter-reset: step; list-style: none; padding: 0; }
+        .steps li {
+            counter-increment: step;
+            padding: 10px 10px 10px 48px;
+            position: relative;
+            margin-bottom: 8px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+        .steps li::before {
+            content: counter(step);
+            position: absolute; left: 12px; top: 10px;
+            background: var(--blue); color: #fff;
+            width: 24px; height: 24px; border-radius: 50%;
+            font-weight: 700; font-size: 12px;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* ── Misc ── */
+        code {
+            background: #f1f5f9; border: 1px solid #e2e8f0;
+            border-radius: 4px; padding: 2px 6px;
+            font-size: 12.5px; font-family: 'Consolas','Monaco',monospace;
+        }
+        .warning-box {
+            background: #FFF7ED; border: 1px solid #FED7AA;
+            border-left: 4px solid #F97316; border-radius: 0 8px 8px 0;
+            padding: 14px 18px; margin: 14px 0; font-size: 13.5px;
+        }
+        .card { background: #f8fafc; border-left: 4px solid var(--blue); padding: 18px 20px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+
+        .footer {
+            margin-top: 48px; text-align: center;
+            color: #94a3b8; font-size: 12px;
+            border-top: 1px solid #e2e8f0; padding-top: 20px;
+        }
+
+        /* ── Section callout boxes ── */
+        .section-box {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 14px 0;
+        }
+        .section-box-header {
+            padding: 8px 14px;
+            font-weight: 700;
+            font-size: 13px;
+            color: #fff;
+        }
+        .section-box-body { padding: 14px; font-size: 13.5px; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- ══ HEADER ═══════════════════════════════════════════════════════════ -->
+    <div class="header">
+        <div class="badge">APEXTRADER.AI · ENTERPRISE SUITE · v2.0</div>
+        <h1>Technical User Manual</h1>
+        <div class="subtitle">Futures Market Opening Bot &amp; Multi-Account Replicator · NinjaTrader 8</div>
+        <div style="margin-top:10px; font-size:12px; color:#94a3b8;">
+            Last updated: August 2026 &nbsp;·&nbsp; 100% English interface &nbsp;·&nbsp; NT8 Compatible
+        </div>
+    </div>
+
+    <!-- ══ OVERVIEW ══════════════════════════════════════════════════════════ -->
+    <h2>📦 Product Overview</h2>
+    <p>The <strong>ApexTrader.AI Enterprise Suite</strong> for NinjaTrader 8 includes two fully automated strategies
+    with on-chart <strong>WPF HUD overlay panels</strong>. Both interfaces are 100% in English and rendered
+    directly on the NinjaTrader chart window.</p>
+
+    <table>
+        <tr>
+            <th>Product</th><th>File</th><th>Description</th>
+        </tr>
+        <tr>
+            <td><strong>Market Opening Bot</strong></td>
+            <td><code>MarketOpeningBotEnterprise.cs</code></td>
+            <td>Automated NY session opening breakout strategy with 4-stage profit locking and volatility shield.</td>
+        </tr>
+        <tr>
+            <td><strong>Multi-Account Replicator</strong></td>
+            <td><code>MultiAccountReplicatorEnterprise.cs</code></td>
+            <td>Real-time trade replicator from one master account to unlimited slave accounts.</td>
+        </tr>
+    </table>
+
+    <!-- ══ INSTALLATION ══════════════════════════════════════════════════════ -->
+    <h2>⚙️ Installation</h2>
+    <ol class="steps">
+        <li>Open <strong>NinjaTrader 8</strong> → <strong>Tools → Import → NinjaScript Add-On</strong>.</li>
+        <li>Select the <code>.zip</code> file: <code>MarketOpeningBotEnterprise.zip</code> or <code>MultiAccountReplicatorEnterprise.zip</code>.</li>
+        <li>NinjaTrader will auto-compile the strategy. Confirm any prompts.</li>
+        <li>Open a <strong>chart</strong> for your instrument (e.g. NQ 03-26, ES 03-26).</li>
+        <li>Right-click the chart → <strong>Strategies → Add Strategy</strong> → select the strategy.</li>
+        <li>Configure all parameters in the Properties panel and click <strong>OK</strong>.</li>
+        <li>The <strong>WPF HUD panel</strong> will appear overlaid on the chart automatically.</li>
+    </ol>
+
+    <div class="warning-box">
+        ⚠️ <strong>License:</strong> Enter your ApexTrader.AI subscription email in <em>"Customer License Email"</em>.
+        For demo/testing, leave it as <code>trader@example.com</code> — no cloud check is performed.
+        During live trading, a background heartbeat runs every 15 minutes (3 retries / 45 min grace period).
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         BOT 1 — FUTURES MARKET OPENING BOT
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="product-header">
+        <span class="dot">⚡</span>
+        <h2>Futures Market Opening Bot</h2>
+        <span class="pill">ACTIVE / LIVE</span>
+    </div>
+    <div class="product-body">
+
+        <p>Executes a precision breakout entry at the New York opening bell (default 09:30:00 NY)
+        with automated risk management, 4-stage profit locking, and a pre-opening volatility shield.</p>
+
+        <!-- INTERFACE PREVIEW -->
+        <div class="interface-preview">
+            <div class="preview-label">📺 &nbsp; Interface Preview — WPF HUD Overlay on NinjaTrader 8 Chart</div>
+            <img src="opening_bot_en.png" alt="Futures Market Opening Bot — WPF HUD Panel on NinjaTrader 8 chart">
+            <div class="caption">
+                The HUD panel is rendered directly on the chart. All 4 sections are visible:
+                Scheduled Opening Entry · Risk Management &amp; PnL · Profit Lock (4 Stages) · Pre-Opening Analysis.<br>
+                Live session telemetry (Realized PnL / Open PnL / Trades Today) and 3 action buttons are shown at the bottom.
+            </div>
+        </div>
+
+        <!-- CHART PAINTING DIAGRAM -->
+        <div class="interface-preview">
+            <div class="preview-label">📊 &nbsp; Chart Painting Diagram — All Visual Elements Drawn on NinjaTrader Candles</div>
+            <img src="opening_bot_chart.png" alt="Market Opening Bot — Annotated chart showing all visual elements painted on candlesticks">
+            <div class="caption">
+                All chart painting features shown on a live NQ 5-minute session:<br>
+                <strong style="color:#CC88FF">Purple zone</strong> = Pre-Market (08:00–09:29) &nbsp;·&nbsp;
+                <strong style="color:#00FFFF">Cyan dashed line</strong> = NY Open 09:30 &nbsp;·&nbsp;
+                <strong style="color:#00FF00">▲ Arrow</strong> = Long entry signal &nbsp;·&nbsp;
+                <strong style="color:#FF5555">Red dashed</strong> = Stop Loss level &nbsp;·&nbsp;
+                <strong style="color:#00FF88">Green dashed</strong> = Take Profit level &nbsp;·&nbsp;
+                <strong style="color:#10B981">💎 Teal diamonds</strong> = Profit Lock stages achieved &nbsp;·&nbsp;
+                <strong style="color:#FFA500">Orange dashed</strong> = Force Flat 15:50
+            </div>
+        </div>
+
+        <h3>Section 1 — Scheduled Opening Entry</h3>
+        <table>
+            <tr><th>Parameter</th><th>Default</th><th>Description</th></tr>
+            <tr><td>NY Entry Time</td><td><code>09:30:00</code></td><td>New York opening breakout entry time (HH:mm:ss).</td></tr>
+            <tr><td>Entry Window (Sec)</td><td><code>2</code></td><td>Max latency/slippage tolerance window in seconds.</td></tr>
+            <tr><td>Contracts</td><td><code>15</code></td><td>Number of contracts per trade.</td></tr>
+            <tr><td>Risk ($)</td><td><code>$500</code></td><td>Max risk per trade in USD.</td></tr>
+            <tr><td>Target ($)</td><td><code>$2,500</code></td><td>Profit target per trade in USD.</td></tr>
+        </table>
+
+        <h3>Section 2 — Risk Management &amp; PnL</h3>
+        <table>
+            <tr><th>Parameter</th><th>Default</th><th>Description</th></tr>
+            <tr><td>Stop Loss (Ticks)</td><td><code>103</code></td><td>Fixed initial Stop Loss in ticks.</td></tr>
+            <tr><td>Take Profit (Ticks)</td><td><code>384</code></td><td>Fixed initial Profit Target in ticks.</td></tr>
+            <tr><td>Max Daily Loss ($)</td><td><span class="tag tag-red">-$500</span></td><td>Daily hard stop — bot ceases new entries if hit.</td></tr>
+            <tr><td>Daily Target ($)</td><td><span class="tag tag-green">+$1,000</span></td><td>Daily profit goal — bot pauses new entries if reached.</td></tr>
+            <tr><td>Force Flat Time</td><td><code>15:50:00</code></td><td>Mandatory end-of-day position close time (NY).</td></tr>
+        </table>
+
+        <h3>Section 3 — Profit Lock (4 Stages)</h3>
+        <p>As the session P&amp;L reaches each trigger, the corresponding minimum profit is locked in via a trailing stop adjustment.</p>
+        <table>
+            <tr><th>Stage</th><th>P&amp;L Trigger</th><th></th><th>Profit Locked</th></tr>
+            <tr><td>Stage 1</td><td>$600</td><td>→</td><td>$320</td></tr>
+            <tr><td>Stage 2</td><td>$1,000</td><td>→</td><td>$820</td></tr>
+            <tr><td>Stage 3</td><td>$1,150</td><td>→</td><td>$1,050</td></tr>
+            <tr><td>Stage 4</td><td>$1,800</td><td>→</td><td>$1,600</td></tr>
+        </table>
+
+        <h3>Section 4 — Pre-Opening Analysis (08:00 - 09:29 AM)</h3>
+        <table>
+            <tr><th>Parameter</th><th>Default</th><th>Description</th></tr>
+            <tr><td>Range Threshold (pts)</td><td><code>51 pts</code></td><td>Pre-market range ceiling. If exceeded, entry is suppressed for that session.</td></tr>
+            <tr><td>Shield Status</td><td><span class="tag tag-green">SAFE / PROTECTED</span></td><td>Live volatility shield status shown on the HUD panel.</td></tr>
+        </table>
+
+        <h3>HUD Action Buttons</h3>
+        <table>
+            <tr><th>Button</th><th>Color</th><th>Action</th></tr>
+            <tr>
+                <td><strong>FLATTEN &amp; CANCEL ALL</strong></td>
+                <td><span class="tag tag-red">RED</span></td>
+                <td>Immediately exits all open positions and cancels all working orders.</td>
+            </tr>
+            <tr>
+                <td><strong>PAUSE BOT / RESUME BOT</strong></td>
+                <td><span class="tag tag-amber">ORANGE / GREEN</span></td>
+                <td>Toggles between active and paused states. Turns green when resuming.</td>
+            </tr>
+            <tr>
+                <td><strong>RESET PnL</strong></td>
+                <td><span class="tag tag-green">GREEN</span></td>
+                <td>Resets the session P&amp;L counter and trade counter to zero.</td>
+            </tr>
+        </table>
+
+    </div><!-- /product-body -->
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         BOT 2 — MULTI-ACCOUNT REPLICATOR
+    ════════════════════════════════════════════════════════════════════════ -->
+    <div class="product-header">
+        <span class="dot">⚡</span>
+        <h2>Futures Multi-Account Replicator</h2>
+        <span class="pill">ACTIVE / SYNCHRONIZED</span>
+    </div>
+    <div class="product-body">
+
+        <p>Replicates every trade from one <strong>master account</strong> to unlimited <strong>slave accounts</strong>
+        in real time, with per-account ratio scaling, daily risk limits, and advanced fail-safe controls.</p>
+
+        <!-- INTERFACE PREVIEW -->
+        <div class="interface-preview">
+            <div class="preview-label">📺 &nbsp; Interface Preview — WPF HUD Overlay on NinjaTrader 8 Chart</div>
+            <img src="replicator_en.png" alt="Futures Multi-Account Replicator — WPF HUD Panel on NinjaTrader 8 chart">
+            <div class="caption">
+                The HUD features navigation tabs (STATUS / ACCOUNTS / RISK MANAGEMENT / CONFIGURATION),
+                Master Account controls, a live Slave Account Matrix with per-account status indicators,
+                Advanced Control Options, a scrollable Activity Log, and 3 action buttons.
+            </div>
+        </div>
+
+        <!-- CHART PAINTING DIAGRAM -->
+        <div class="interface-preview">
+            <div class="preview-label">📊 &nbsp; Chart Painting Diagram — All Visual Elements Drawn on NinjaTrader Candles</div>
+            <img src="replicator_chart.png" alt="Multi-Account Replicator — Annotated chart showing all visual elements painted on candlesticks">
+            <div class="caption">
+                All chart painting features shown on a live NQ 5-minute session:<br>
+                <strong style="color:#10B981">Green background</strong> = Replication Active &nbsp;·&nbsp;
+                <strong style="color:#F59E0B">Amber background</strong> = Replication Paused &nbsp;·&nbsp;
+                <strong style="color:#4EDEA3">▲ Teal arrow</strong> = Replicated Long entry &nbsp;·&nbsp;
+                <strong style="color:#FF6464">▼ Red arrow</strong> = Replicated Short entry &nbsp;·&nbsp;
+                <strong style="color:#FFD700">◆ Gold diamond</strong> = Replicated exit &nbsp;·&nbsp;
+                <strong style="color:#F59E0B">Orange vertical</strong> = Pause event &nbsp;·&nbsp;
+                <strong style="color:#10B981">Green vertical</strong> = Resume event
+            </div>
+        </div>
+
+        <h3>Section: Master Account &amp; Mode</h3>
+        <table>
+            <tr><th>Parameter</th><th>Default</th><th>Description</th></tr>
+            <tr><td>Replication Profile Preset</td><td><code>Master_150K_to_Slave_50K</code></td><td>Auto-sets the multiplier for common funded account configurations.</td></tr>
+            <tr><td>Master Account</td><td><code>Sim101</code></td><td>Exact NinjaTrader account name of the master/source account.</td></tr>
+            <tr><td>Slave Accounts (CSV)</td><td><code>AUTO</code></td><td>Comma-separated slave account names, or <code>AUTO</code> to detect all connected accounts.</td></tr>
+            <tr><td>Multiplication Factor</td><td><code>0.2×</code></td><td>Contract size ratio applied to slaves (e.g. 0.2× = 1 master contract → 0.2 slave).</td></tr>
+            <tr><td>Copy Entries</td><td>☑ Enabled</td><td>Replicate entry orders from master to slaves.</td></tr>
+            <tr><td>Copy Exits</td><td>☑ Enabled</td><td>Replicate exit/close orders from master to slaves.</td></tr>
+            <tr><td>Reverse Trade Mode</td><td>☐ Disabled</td><td>When enabled, slaves trade the inverse direction of the master.</td></tr>
+            <tr><td>Max Slippage (Ticks)</td><td><code>2 ticks</code></td><td>Max allowed slippage before a slave order is rejected.</td></tr>
+            <tr><td>Block Position Inversion</td><td>☑ Enabled</td><td>Prevents slaves from flipping to an opposite-direction position.</td></tr>
+        </table>
+
+        <h3>Section: Slave Account Matrix</h3>
+        <p>Each connected slave account appears as a live row on the HUD showing:</p>
+        <div class="section-box">
+            <div class="section-box-header" style="background: #071626; color: #4EDEA3;">
+                ☑ &nbsp; PA_APEX_001 &nbsp;|&nbsp; Ratio: 1.0× &nbsp;|&nbsp; Max Loss: -$500 &nbsp;|&nbsp; Status: <strong>Connected</strong>
+            </div>
+        </div>
+        <p style="font-size:13.5px;">The matrix auto-populates when <code>AUTO</code> mode is set, or after clicking <strong>RE-SYNC POSITIONS</strong>.</p>
+
+        <h3>Section: Advanced Control Options</h3>
+        <table>
+            <tr><th>Option</th><th>Default</th><th>Description</th></tr>
+            <tr><td>Copy Limit/Stop Orders</td><td>☑ Enabled</td><td>Also replicates limit and stop orders (not just market orders).</td></tr>
+            <tr><td>Synchronize ATM Close</td><td>☑ Enabled</td><td>Syncs NinjaTrader ATM strategy close events to slave accounts.</td></tr>
+            <tr><td>Auto-Flatten on Disconnect (Fail-Safe)</td><td>☑ Enabled</td><td>Automatically flattens all slave positions if connection is lost.</td></tr>
+            <tr><td>Block Manual Inversion</td><td>☑ Enabled</td><td>Prevents manual orders from inverting the replicated position direction.</td></tr>
+        </table>
+
+        <h3>Section: Slave Account Risk Limits</h3>
+        <table>
+            <tr><th>Parameter</th><th>Default</th><th>Description</th></tr>
+            <tr><td>Max Daily Loss Per Slave ($)</td><td><span class="tag tag-red">-$500</span></td><td>Maximum allowed daily loss per slave. Slave replication pauses if hit.</td></tr>
+        </table>
+
+        <h3>HUD Action Buttons</h3>
+        <table>
+            <tr><th>Button</th><th>Color</th><th>Action</th></tr>
+            <tr>
+                <td><strong>FLATTEN ALL SLAVES &amp; PAUSE</strong></td>
+                <td><span class="tag tag-red">RED</span></td>
+                <td>Immediately flattens all positions on all slave accounts and pauses replication.</td>
+            </tr>
+            <tr>
+                <td><strong>ACTIVATE REPLICATION / PAUSE</strong></td>
+                <td><span class="tag tag-green">GREEN / ORANGE</span></td>
+                <td>Toggles replication between active and paused states.</td>
+            </tr>
+            <tr>
+                <td><strong>RE-SYNC POSITIONS</strong></td>
+                <td><span class="tag tag-blue">BLUE</span></td>
+                <td>Re-scans all connected NT8 accounts and rebuilds the slave account matrix live.</td>
+            </tr>
+        </table>
+
+    </div><!-- /product-body -->
+
+    <!-- ══ CLOUD LICENSE & SECURITY ══════════════════════════════════════════ -->
+    <h2>🔒 Cloud License &amp; Security System</h2>
+    <div class="card">
+        <p>Both strategies include a <strong>multi-layered cloud license verification system</strong>:</p>
+        <ul>
+            <li><strong>Machine HWID Fingerprinting</strong> — SHA-256 hash of machine name, processor count, and system directory.</li>
+            <li><strong>Non-blocking Background Verification</strong> — Runs on a background thread; never freezes the trading engine.</li>
+            <li><strong>15-Minute Heartbeat</strong> — Re-verifies license every 15 minutes during active trading.</li>
+            <li><strong>3-Retry Grace Period</strong> — Up to 3 consecutive heartbeat failures (≈ 45 min) before new entries are paused.</li>
+            <li><strong>SSL Certificate Validation</strong> — All cloud calls use HTTPS for secure communication.</li>
+        </ul>
+    </div>
+
+    <!-- ══ TROUBLESHOOTING ════════════════════════════════════════════════════ -->
+    <h2>🛠️ Troubleshooting</h2>
+    <table>
+        <tr><th>Issue</th><th>Solution</th></tr>
+        <tr><td>HUD panel does not appear on chart</td><td>Ensure the strategy is applied to an active <strong>chart window</strong> (not SuperDOM or Level 2).</td></tr>
+        <tr><td>No slave accounts in Replicator matrix</td><td>Set <code>Slave Accounts</code> to <code>AUTO</code> and click <strong>RE-SYNC POSITIONS</strong> after all accounts are connected.</td></tr>
+        <tr><td>⚠️ Heartbeat warning in Output window</td><td>Check internet connection. Server: <code>us-central1-apextrader-ai.cloudfunctions.net</code>. 3 retries are allowed before pausing.</td></tr>
+        <tr><td>Buttons have no effect</td><td>Ensure you are on a live or sim account with an active data feed. Verify the strategy is in <strong>Enabled</strong> state in the Strategies panel.</td></tr>
+        <tr><td>Multiplier not applying correctly</td><td>Check the <strong>Replication Profile Preset</strong> matches your account tier, or set it to <code>Custom</code> and enter the factor manually.</td></tr>
+    </table>
+
+    <!-- ══ FOOTER ═════════════════════════════════════════════════════════════ -->
+    <div class="footer">
+        <strong>ApexTrader.AI Enterprise Suite</strong> &nbsp;·&nbsp; NinjaTrader 8 &nbsp;·&nbsp;
+        Technical User Manual v2.0 &nbsp;·&nbsp; August 2026
+    </div>
+
+</div>
+</body>
+</html>

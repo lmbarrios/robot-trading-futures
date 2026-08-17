@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ApexTrader.AI - Tactical Trading HUD</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600;700&amp;family=Inter:wght@400;500&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed-dim": "#4edea3",
+                        "outline-variant": "#45464d",
+                        "secondary-fixed": "#cce5ff",
+                        "on-surface": "#d4e4fa",
+                        "primary-fixed": "#dae2fd",
+                        "primary-container": "#0f172a",
+                        "surface-variant": "#273647",
+                        "inverse-surface": "#d4e4fa",
+                        "primary": "#bec6e0",
+                        "tertiary-fixed": "#6ffbbe",
+                        "surface-tint": "#bec6e0",
+                        "surface-container-highest": "#273647",
+                        "on-secondary-fixed": "#001d31",
+                        "tertiary": "#4edea3",
+                        "on-secondary": "#003351",
+                        "surface-container-low": "#0d1c2d",
+                        "secondary-fixed-dim": "#93ccff",
+                        "surface": "#051424",
+                        "error": "#ffb4ab",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "secondary": "#93ccff",
+                        "on-secondary-container": "#002c47",
+                        "secondary-container": "#3198dc",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "outline": "#909097",
+                        "on-error": "#690005",
+                        "primary-fixed-dim": "#bec6e0",
+                        "on-tertiary-fixed": "#002113",
+                        "on-secondary-fixed-variant": "#004b73",
+                        "surface-container-lowest": "#010f1f",
+                        "surface-dim": "#051424",
+                        "tertiary-container": "#001c10",
+                        "on-tertiary-container": "#009365",
+                        "on-primary-container": "#798098",
+                        "surface-container": "#122131",
+                        "background": "#051424",
+                        "inverse-primary": "#565e74",
+                        "on-primary": "#283044",
+                        "surface-bright": "#2c3a4c",
+                        "surface-container-high": "#1c2b3c",
+                        "on-primary-fixed": "#131b2e",
+                        "inverse-on-surface": "#233143",
+                        "on-surface-variant": "#c6c6cd",
+                        "error-container": "#93000a",
+                        "on-tertiary": "#003824",
+                        "on-background": "#d4e4fa"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "container-padding": "12px",
+                        "margin": "24px",
+                        "unit": "4px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Geist"],
+                        "data-md": ["JetBrains Mono"],
+                        "body-md": ["Inter"],
+                        "label-sm": ["JetBrains Mono"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Geist"],
+                        "data-lg": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "data-md": ["14px", { "lineHeight": "18px", "fontWeight": "500" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "label-sm": ["11px", { "lineHeight": "16px", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "data-lg": ["18px", { "lineHeight": "24px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .neon-glow {
+            box-shadow: 0 0 12px 0px rgba(147,204,255,0.4);
+        }
+        .neon-glow-hover:hover {
+            box-shadow: 0 0 16px 2px rgba(147,204,255,0.6);
+        }
+        .glass-panel {
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+        /* Grid background pattern */
+        .grid-bg {
+            background-image: 
+                linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col font-body-md overflow-x-hidden selection:bg-secondary/30 selection:text-secondary">
+<!-- TopAppBar -->
+<nav class="bg-surface/60 backdrop-blur-xl font-headline-md text-headline-md font-body-md text-body-md fixed top-0 w-full z-50 border-b border-white/10 shadow-[0_0_8px_0px_rgba(147,204,255,0.3)]">
+<div class="flex justify-between items-center px-margin h-16 w-full max-w-[1920px] mx-auto">
+<!-- Brand -->
+<div class="flex items-center gap-gutter">
+<img alt="ApexTrader.AI Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDR01rWcUheBdtAwvxMMjfFCVHqxiiYSwyfFgnF_RB9bmTZklphQfOHis0h3cVSJkEKyyhKRuZiHU1MNO0pB-CdhRt-bU2aHcIm0-wPXzG5FwFruzYC4UoItz9C-B6aix2Fwa_W4a3BsWXGHxDD7tmYZg_udFHxVIn3JP55b679ckvGshhZOfWJWsFYEamOCOCba9SJYhcC5vR8HiARw_LotqnRlRYqi9Opmf7xSImGV88kDfGeZ0DN3w"/>
+<span class="font-headline-md text-headline-md font-bold tracking-tighter text-secondary hidden md:block">ApexTrader.AI</span>
+</div>
+<!-- Navigation Links (Center) -->
+<ul class="hidden lg:flex items-center gap-margin h-full">
+<li class="h-full flex items-center">
+<a class="text-secondary border-b-2 border-secondary pb-1 h-full flex items-center active:scale-95 duration-100 font-body-md text-body-md font-medium" href="#">Marketing</a>
+</li>
+<li class="h-full flex items-center">
+<a class="text-on-surface-variant hover:text-secondary transition-colors h-full flex items-center hover:bg-surface-variant/50 transition-all duration-200 px-unit active:scale-95 duration-100 font-body-md text-body-md" href="#">Dashboard</a>
+</li>
+<li class="h-full flex items-center">
+<a class="text-on-surface-variant hover:text-secondary transition-colors h-full flex items-center hover:bg-surface-variant/50 transition-all duration-200 px-unit active:scale-95 duration-100 font-body-md text-body-md" href="#">Trading HUD</a>
+</li>
+<li class="h-full flex items-center">
+<a class="text-on-surface-variant hover:text-secondary transition-colors h-full flex items-center hover:bg-surface-variant/50 transition-all duration-200 px-unit active:scale-95 duration-100 font-body-md text-body-md" href="#">Network</a>
+</li>
+</ul>
+<!-- Trailing Actions -->
+<div class="flex items-center gap-gutter">
+<div class="hidden md:flex gap-unit">
+<button class="p-2 rounded hover:bg-surface-variant/50 transition-all duration-200 text-on-surface-variant hover:text-secondary active:scale-95 duration-100 flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 rounded hover:bg-surface-variant/50 transition-all duration-200 text-on-surface-variant hover:text-secondary active:scale-95 duration-100 flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+<button class="bg-secondary/10 border border-secondary text-secondary px-4 py-2 rounded font-data-md text-data-md hover:bg-secondary/20 transition-all duration-200 neon-glow-hover active:scale-95 flex items-center gap-2">
+                    Connect Wallet
+                </button>
+<!-- Mobile Menu Toggle -->
+<button class="lg:hidden p-2 text-on-surface-variant hover:text-secondary">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+</div>
+</nav>
+<!-- Main Canvas -->
+<main class="flex-grow pt-24 pb-16 px-margin max-w-[1920px] mx-auto w-full relative grid-bg">
+<!-- Ambient Background Glow -->
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-96 bg-secondary/10 blur-[120px] rounded-full pointer-events-none z-0"></div>
+<!-- Hero Section -->
+<section class="relative z-10 flex flex-col items-center justify-center text-center pt-16 pb-24 md:pt-32 md:pb-40 space-y-gutter max-w-4xl mx-auto">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-secondary/30 bg-surface/80 glass-panel mb-4">
+<div class="w-2 h-2 rounded-full bg-tertiary-fixed-dim shadow-[0_0_8px_0px_theme(colors.tertiary-fixed-dim)] animate-pulse"></div>
+<span class="font-label-sm text-label-sm text-secondary uppercase tracking-widest">Built for NinjaTrader 8 &amp; Prop Firms</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg md:text-[48px] md:leading-[56px] text-on-surface tracking-tighter">
+                Automate Futures Opening Volatility &amp; <br class="hidden md:block"/>
+<span class="text-transparent bg-clip-text bg-gradient-to-r from-secondary to-tertiary-fixed-dim">Pass Prop Firm Challenges</span>
+</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mt-4">
+                Deploy institutional-grade algorithmic execution. Leverage glass-morphic HUDs, millisecond-precision entry protocols, and automated risk scaling to dominate the NQ open.
+            </p>
+<div class="flex flex-col sm:flex-row gap-gutter mt-8 w-full sm:w-auto">
+<button class="bg-secondary text-on-secondary px-8 py-3 rounded font-data-lg text-data-lg font-bold neon-glow neon-glow-hover transition-all duration-200 flex items-center justify-center gap-2">
+                    Get Started Now
+                    <span class="material-symbols-outlined text-[20px]">rocket_launch</span>
+</button>
+<button class="bg-surface/50 glass-panel border border-outline-variant text-on-surface px-8 py-3 rounded font-data-md text-data-md hover:border-secondary hover:text-secondary transition-all duration-200 flex items-center justify-center gap-2">
+                    View Documentation
+                    <span class="material-symbols-outlined text-[20px]">code</span>
+</button>
+</div>
+</section>
+<!-- Partner Logos -->
+<section class="border-y border-white/5 bg-surface-container-lowest/50 glass-panel py-8 mb-24 relative z-10">
+<div class="max-w-6xl mx-auto px-margin">
+<p class="font-label-sm text-label-sm text-center text-outline uppercase tracking-widest mb-6">Certified Integrations &amp; Ecosystem Partners</p>
+<div class="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
+<img class="h-8 md:h-10 object-contain" data-alt="A sleek, monochromatic corporate logo for a financial technology firm, featuring geometric shapes and sans-serif typography on a dark background. High contrast, modern tech aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCIqAE1eWeyMdGfYqCSANQfHfO60SIeOKYRBBPD_a2cjGm8N6oHZqh3LsB2WivKjS__b2Htmj-YtBCzqe1ndh2Q1woQje7Prp97HutF4r13U4pvFagwlM-1JCnkoUKZ1JbZFwL7554IRoLEq3o71xyr0-SQbj4kP5r4K4hMJgsiLPzw2S67Be1I9NrsoYYqaVHzoYUmuuglc2YHTgmQH-c-WAI6nNM0dB6ixjJW3Wv8yo4uRc3eWEP3dA"/>
+<img class="h-8 md:h-10 object-contain" data-alt="A modern trading platform logo, stylized letters interconnected with thin circuit-board lines. Rendered in a metallic silver finish against a deep slate backdrop. Minimalist and professional." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWMnNgIEyDGux2fsd1uO-ZhIBLZHfjXASsxUwmYVvDqV-Cf7Lxp0Yb0l2xSODFVUwpZ5pNqK7U76STnsREBZQRHVw8sWYW-pLkCPXVcpAI3q3IklHM5yU5tIZZX_uuV__5O29pk40rjAj1L0t-md8IHbeW45DOnvnYwT8W3aUvBzjtOacRGwwLl_HUwLAiObkvq_2nBpCd_UstENioC8fNdZbEuLaGnOWZJF0c3GbwYpgNv0-rxlCMzg"/>
+<img class="h-8 md:h-10 object-contain" data-alt="A bold, futuristic insignia representing a proprietary trading firm. It incorporates sharp angles and a stylized bull motif, illuminated with a subtle cyan edge light. Dark mode optimized." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDzC_yNSLptUQ6FDkiTXmoPxgz7HcRs6Aqr8lBMu6u0I1XjO2qCb5QqT2qtfiU_B6X3rTvH9dP8ZUzyIoyMaA5kYLk94GfxnmzD69Q1e_wH161JeITXdOlrFwMPLekWq_c1q2RcgC-91h2AQvAcJ5j0jESY739skwDFSHp3Q0SE4MQ98_-IE01CRzUqIt_FKA8E1c8tKdIZMtdY_hdXex7gUvSCGxTTXc1Oyg8uTHEMpN75_1VjIzkTAg"/>
+<img class="h-8 md:h-10 object-contain" data-alt="A minimalist typographic logo for an investment software company, utilizing a heavy, technical font. The letters are slightly spaced out, exuding institutional reliability and stability. Monochromatic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_E0vxbBI5yogvkkT54ZMB0HH7JitorKoGHtVmUfD3VDI126NMiBDRj_BA82Q34MHEu5YGOXhqwxO5Ayd2YwCUItGlFFqU-QTq44zJ_cOqHbA6M-_BlwtI9dEzM-PvvbcKCfEfYKLj7b11W_K-icii-WjUQ0LkxogUIfw6Ejf4BqvEgllbACwEn5g6LlAwIMGU9DPzBWQ1cQAjHxMsvTnHrO3BWo258nYwAXepy9EhzCvyX7TxgIxcLQ"/>
+</div>
+</div>
+</section>
+<!-- Feature Grid (Bento Style) -->
+<section class="relative z-10 max-w-7xl mx-auto mb-32">
+<div class="text-center mb-16">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-4">Tactical Advantages</h2>
+<p class="font-body-md text-body-md text-outline">Engineered for the demands of high-frequency environments.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
+<!-- Feature 1 -->
+<div class="bg-surface-container/60 glass-panel border border-outline-variant/30 rounded-lg p-6 hover:border-secondary/50 transition-colors group relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="w-12 h-12 rounded bg-surface border border-outline-variant/50 flex items-center justify-center mb-4 group-hover:border-secondary transition-colors">
+<span class="material-symbols-outlined text-secondary text-[28px] group-hover:shadow-[0_0_8px_0px_theme(colors.secondary)] transition-shadow rounded-full" data-weight="fill">speed</span>
+</div>
+<h3 class="font-data-lg text-data-lg text-on-surface mb-2">Sub-Millisecond Execution</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Bypass standard API lag with our direct C# NinjaScript compilation. Your orders hit the exchange matching engine before the retail queue updates.</p>
+</div>
+<!-- Feature 2 -->
+<div class="bg-surface-container/60 glass-panel border border-outline-variant/30 rounded-lg p-6 hover:border-secondary/50 transition-colors group relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="w-12 h-12 rounded bg-surface border border-outline-variant/50 flex items-center justify-center mb-4 group-hover:border-secondary transition-colors">
+<span class="material-symbols-outlined text-secondary text-[28px] group-hover:shadow-[0_0_8px_0px_theme(colors.secondary)] transition-shadow rounded-full" data-weight="fill">memory</span>
+</div>
+<h3 class="font-data-lg text-data-lg text-on-surface mb-2">Automated Replicator</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Seamlessly mirror trades across up to 20 Rithmic or Tradovate accounts simultaneously. Perfect for managing multiple prop firm evaluations.</p>
+</div>
+<!-- Feature 3 -->
+<div class="bg-surface-container/60 glass-panel border border-outline-variant/30 rounded-lg p-6 hover:border-secondary/50 transition-colors group relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="w-12 h-12 rounded bg-surface border border-outline-variant/50 flex items-center justify-center mb-4 group-hover:border-secondary transition-colors">
+<span class="material-symbols-outlined text-secondary text-[28px] group-hover:shadow-[0_0_8px_0px_theme(colors.secondary)] transition-shadow rounded-full" data-weight="fill">security</span>
+</div>
+<h3 class="font-data-lg text-data-lg text-on-surface mb-2">Drawdown Shield</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Hard-coded risk parameters prevent emotional blowing of accounts. Auto-liquidate and lock terminal when daily loss limits are approached.</p>
+</div>
+<!-- Feature 4 -->
+<div class="bg-surface-container/60 glass-panel border border-outline-variant/30 rounded-lg p-6 hover:border-secondary/50 transition-colors group relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="w-12 h-12 rounded bg-surface border border-outline-variant/50 flex items-center justify-center mb-4 group-hover:border-secondary transition-colors">
+<span class="material-symbols-outlined text-secondary text-[28px] group-hover:shadow-[0_0_8px_0px_theme(colors.secondary)] transition-shadow rounded-full" data-weight="fill">insights</span>
+</div>
+<h3 class="font-data-lg text-data-lg text-on-surface mb-2">Volatility Anchors</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Dynamic target adjustments based on real-time ATR and VIX calculations. The algorithm adapts to market regimes dynamically.</p>
+</div>
+<!-- Feature 5 -->
+<div class="bg-surface-container/60 glass-panel border border-outline-variant/30 rounded-lg p-6 hover:border-secondary/50 transition-colors group relative overflow-hidden md:col-span-2 lg:col-span-1">
+<div class="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="w-12 h-12 rounded bg-surface border border-outline-variant/50 flex items-center justify-center mb-4 group-hover:border-secondary transition-colors">
+<span class="material-symbols-outlined text-secondary text-[28px] group-hover:shadow-[0_0_8px_0px_theme(colors.secondary)] transition-shadow rounded-full" data-weight="fill">candlestick_chart</span>
+</div>
+<h3 class="font-data-lg text-data-lg text-on-surface mb-2">Order Flow Imbalance</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Detect footprint anomalies and aggressive institutional absorption before the price moves. Visual cues integrated directly into the chart HUD.</p>
+</div>
+<!-- Feature 6 (Wider on tablet) -->
+<div class="bg-surface-container/60 glass-panel border border-outline-variant/30 rounded-lg p-6 hover:border-secondary/50 transition-colors group relative overflow-hidden md:col-span-2 lg:col-span-1">
+<div class="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="w-12 h-12 rounded bg-surface border border-outline-variant/50 flex items-center justify-center mb-4 group-hover:border-secondary transition-colors">
+<span class="material-symbols-outlined text-secondary text-[28px] group-hover:shadow-[0_0_8px_0px_theme(colors.secondary)] transition-shadow rounded-full" data-weight="fill">sync_alt</span>
+</div>
+<h3 class="font-data-lg text-data-lg text-on-surface mb-2">Cloud Configuration</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Manage your bot parameters from a centralized web dashboard. Push updates to your local NinjaTrader instance instantly without restarting.</p>
+</div>
+</div>
+</section>
+<!-- Pricing Section -->
+<section class="relative z-10 max-w-6xl mx-auto">
+<div class="text-center mb-16">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-4">Deployment Tiers</h2>
+<p class="font-body-md text-body-md text-outline">Transparent licensing. No hidden volume fees.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+<!-- Tier 1 -->
+<div class="bg-surface-container/40 glass-panel border border-white/5 rounded-lg p-8 flex flex-col">
+<div class="mb-8">
+<h3 class="font-data-lg text-data-lg text-on-surface-variant mb-2 uppercase tracking-wide">Starter</h3>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-lg text-headline-lg text-on-surface">$99</span>
+<span class="font-body-md text-body-md text-outline">/mo</span>
+</div>
+</div>
+<ul class="space-y-4 mb-8 flex-grow font-body-md text-body-md text-on-surface-variant">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary-fixed-dim text-[16px]">check_circle</span>
+                            1 Live Account
+                        </li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary-fixed-dim text-[16px]">check_circle</span>
+                            Standard NQ Algorithm
+                        </li>
+<li class="flex items-center gap-3 opacity-50">
+<span class="material-symbols-outlined text-outline text-[16px]">cancel</span>
+                            Trade Replicator
+                        </li>
+<li class="flex items-center gap-3 opacity-50">
+<span class="material-symbols-outlined text-outline text-[16px]">cancel</span>
+                            Drawdown Shield
+                        </li>
+</ul>
+<button class="w-full py-3 rounded border border-outline-variant text-on-surface hover:bg-surface-variant transition-colors font-data-md text-data-md">
+                        Select Starter
+                    </button>
+</div>
+<!-- Tier 2 (Highlighted) -->
+<div class="bg-surface-container/80 glass-panel border border-secondary rounded-xl p-8 flex flex-col relative transform md:-translate-y-4 shadow-[0_0_30px_0px_rgba(147,204,255,0.1)]">
+<div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-secondary text-on-secondary px-3 py-1 rounded-full font-label-sm text-label-sm uppercase tracking-wider">
+                        Most Popular
+                    </div>
+<div class="mb-8 mt-2">
+<h3 class="font-data-lg text-data-lg text-secondary mb-2 uppercase tracking-wide">Prop Firm Pro</h3>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-lg text-headline-lg text-on-surface">$199</span>
+<span class="font-body-md text-body-md text-outline">/mo</span>
+</div>
+</div>
+<ul class="space-y-4 mb-8 flex-grow font-body-md text-body-md text-on-surface">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
+                            Up to 5 Copied Accounts
+                        </li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
+                            Advanced Volatility Algo
+                        </li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
+                            Built-in Replicator
+                        </li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary text-[16px]">check_circle</span>
+                            Drawdown Shield API
+                        </li>
+</ul>
+<button class="w-full py-3 rounded bg-secondary text-on-secondary hover:bg-secondary-fixed transition-colors font-data-lg text-data-lg neon-glow-hover">
+                        Deploy Pro
+                    </button>
+</div>
+<!-- Tier 3 -->
+<div class="bg-surface-container/40 glass-panel border border-white/5 rounded-lg p-8 flex flex-col">
+<div class="mb-8">
+<h3 class="font-data-lg text-data-lg text-on-surface-variant mb-2 uppercase tracking-wide">Enterprise Master</h3>
+<div class="flex items-baseline gap-1">
+<span class="font-headline-lg text-headline-lg text-on-surface">$399</span>
+<span class="font-body-md text-body-md text-outline">/mo</span>
+</div>
+</div>
+<ul class="space-y-4 mb-8 flex-grow font-body-md text-body-md text-on-surface-variant">
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary-fixed-dim text-[16px]">check_circle</span>
+                            Unlimited Copied Accounts
+                        </li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary-fixed-dim text-[16px]">check_circle</span>
+                            Custom Code Injection
+                        </li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary-fixed-dim text-[16px]">check_circle</span>
+                            Dedicated VPS Hosting
+                        </li>
+<li class="flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary-fixed-dim text-[16px]">check_circle</span>
+                            1-on-1 Strategy Setup
+                        </li>
+</ul>
+<button class="w-full py-3 rounded border border-outline-variant text-on-surface hover:bg-surface-variant transition-colors font-data-md text-data-md">
+                        Contact Sales
+                    </button>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest text-outline font-body-md text-body-md font-label-sm text-label-sm w-full py-8 border-t border-outline-variant/20 flat relative z-20">
+<div class="flex flex-col md:flex-row justify-between items-center px-margin max-w-7xl mx-auto gap-4">
+<div class="font-headline-md text-headline-md text-on-surface">
+                ApexTrader.AI
+            </div>
+<div class="flex flex-wrap justify-center gap-6">
+<a class="text-outline hover:text-on-surface transition-opacity hover:opacity-80 font-body-md" href="#">Privacy Protocol</a>
+<a class="text-outline hover:text-on-surface transition-opacity hover:opacity-80 font-body-md" href="#">API Docs</a>
+<a class="text-outline hover:text-on-surface transition-opacity hover:opacity-80 font-body-md" href="#">Risk Disclosure</a>
+<a class="text-outline hover:text-on-surface transition-opacity hover:opacity-80 font-body-md" href="#">Terms</a>
+</div>
+<div class="text-label-sm tracking-widest uppercase text-outline-variant">
+                © 2024 ApexTrader.AI Tactical Systems
+            </div>
+</div>
+</footer>
+</body></html>
