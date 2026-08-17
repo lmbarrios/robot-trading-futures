@@ -18,6 +18,7 @@ using NinjaTrader.Data;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.Core.FloatingPoint;
 using NinjaTrader.NinjaScript.Indicators;
+using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Strategies
@@ -151,7 +152,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				Description							= "Bot de Apertura Enterprise v2 con Escudo de Fondeo, News Guard y Validación Nube.";
 				Name								= "BotAperturaMercadoEnterprise";
 				Calculate							= Calculate.OnPriceChange;
-				IsInstantiatedOnEachOptimizationProperty = false;
+				IsInstantiatedOnEachOptimizationIteration = false;
 
 				UseCloudLicenseValidation			= false;
 				CustomerEmail						= "trader@ejemplo.com";
@@ -187,19 +188,22 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 				emaFast = EMA(9);
 				emaMid = EMA(20);
-				AddChartIndicator(emaFast);
-				AddChartIndicator(emaMid);
+				if (ChartControl != null)
+				{
+					AddChartIndicator(emaFast);
+					AddChartIndicator(emaMid);
+				}
 			}
 			else if (State == State.Historical)
 			{
-				if (ChartControl != null)
+				if (ChartControl != null && ChartControl.Dispatcher != null)
 				{
 					ChartControl.Dispatcher.InvokeAsync(() => { CreateWpfHudPanel(); });
 				}
 			}
 			else if (State == State.Terminated)
 			{
-				if (ChartControl != null)
+				if (ChartControl != null && ChartControl.Dispatcher != null)
 				{
 					ChartControl.Dispatcher.InvokeAsync(() => { DisposeWpfHudPanel(); });
 				}
@@ -241,7 +245,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				string name = "";
 				if (Account != null)
 				{
-					try { cash = Account.Get(AccountItem.CashValue, Currency.Usd); } catch {}
+					try { cash = Account.Get(AccountItem.CashValue, Currency.UsDollar); } catch {}
 					name = Account.Name.ToUpper();
 				}
 

@@ -76,14 +76,14 @@ namespace NinjaTrader.NinjaScript.Strategies
 			}
 			else if (State == State.Historical)
 			{
-				if (ChartControl != null)
+				if (ChartControl != null && ChartControl.Dispatcher != null)
 				{
 					ChartControl.Dispatcher.InvokeAsync(() => { CreateWpfHudPanel(); });
 				}
 			}
 			else if (State == State.Terminated)
 			{
-				if (ChartControl != null)
+				if (ChartControl != null && ChartControl.Dispatcher != null)
 				{
 					ChartControl.Dispatcher.InvokeAsync(() => { DisposeWpfHudPanel(); });
 				}
@@ -93,14 +93,17 @@ namespace NinjaTrader.NinjaScript.Strategies
 		private void InitializeSlaveAccounts()
 		{
 			slaveAccountsList.Clear();
-			lock (Account.All)
+			if (Account.All != null)
 			{
-				bool isAuto = string.IsNullOrWhiteSpace(SlaveAccountNames) || SlaveAccountNames.Trim().Equals("AUTO", StringComparison.OrdinalIgnoreCase);
-				string[] configuredSlaves = SlaveAccountNames.Split(',');
-
-				foreach (Account acc in Account.All)
+				lock (Account.All)
 				{
-					if (acc.Name.Equals(MasterAccountName, StringComparison.OrdinalIgnoreCase)) continue;
+					bool isAuto = string.IsNullOrWhiteSpace(SlaveAccountNames) || SlaveAccountNames.Trim().Equals("AUTO", StringComparison.OrdinalIgnoreCase);
+					string[] configuredSlaves = (SlaveAccountNames ?? "").Split(',');
+
+					foreach (Account acc in Account.All)
+					{
+						if (acc == null || string.IsNullOrEmpty(acc.Name)) continue;
+						if (acc.Name.Equals(MasterAccountName, StringComparison.OrdinalIgnoreCase)) continue;
 
 					if (isAuto)
 					{
@@ -119,6 +122,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 						}
 					}
 				}
+			}
 			}
 		}
 

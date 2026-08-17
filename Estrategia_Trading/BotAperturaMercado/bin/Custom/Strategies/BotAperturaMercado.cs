@@ -4,805 +4,1158 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Threading;
 using NinjaTrader.Cbi;
 using NinjaTrader.Gui;
 using NinjaTrader.Gui.Chart;
-using NinjaTrader.Gui.SuperDom;
 using NinjaTrader.Gui.Tools;
 using NinjaTrader.Data;
 using NinjaTrader.NinjaScript;
-using NinjaTrader.Core.FloatingPoint;
 using NinjaTrader.NinjaScript.Indicators;
 using NinjaTrader.NinjaScript.DrawingTools;
-using System.Windows.Controls;
-using System.Windows.Media;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Strategies
 {
-	public enum PerfilCuentaFondeo
-	{
-		AutoDeteccion,
-		Cuenta_50K,
-		Cuenta_100K,
-		Cuenta_150K,
-		Personalizado
-	}
-
-	/// <summary>
-	/// Estrategia Automatizada de Futuros con Sistema Integrado de Validación de Cuentas e Interfaz WPF HUD.
-	/// </summary>
-	public class BotAperturaMercado : Strategy
-	{
-		#region Private Fields
-		private EMA emaFast;
-		private EMA emaMid;
-		
-		private double dailyCumProfit = 0;
-		private int tradesTodayCount = 0;
-		private DateTime currentTradeDate = DateTime.MinValue;
-		private bool dailyPnLocked = false;
-		private bool isAccountAuthorized = false;
-		private bool isPaused = false;
-
-		// Elementos WPF de la Interfaz HUD
-		private Grid chartGrid;
-		private Border hudBorder;
-		private TextBlock statusText;
-		private TextBlock pnlText;
-		private Button btnFlatten;
-		private Button btnPause;
-		private Button btnReset;
-
-		// Estado y Pinceles para Análisis en Gráfico (Chart Painting)
-		private double pmHigh = double.MinValue;
-		private double pmLow  = double.MaxValue;
-		private int botTradeTagCounter = 0;
-		private static readonly SolidColorBrush BrushPMZone = new SolidColorBrush(Color.FromArgb(35, 155, 89, 182));
-		private static readonly SolidColorBrush BrushActiveZone = new SolidColorBrush(Color.FromArgb(18, 49, 152, 220));
-		private static readonly SolidColorBrush BrushInTradeLong = new SolidColorBrush(Color.FromArgb(40, 16, 185, 129));
-		private static readonly SolidColorBrush BrushInTradeShort = new SolidColorBrush(Color.FromArgb(40, 239, 68, 68));
-		#endregion
-
-		#region Properties - 0. Sistema de Licencia y Validación de Cuentas
-		[NinjaScriptProperty]
-		[Display(Name = "Activar Validación de Cuenta", Description = "Si está activo, solo las cuentas permitidas podrán ejecutar el bot.", Order = 1, GroupName = "0. Licencia & Validación")]
-		public bool UseAccountValidation { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Cuentas Autorizadas (separadas por coma)", Description = "Ejemplo: Sim101, PA_APEX_1234, MY_FUNDED_ACCOUNT", Order = 2, GroupName = "0. Licencia & Validación")]
-		public string AuthorizedAccountNames { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Fecha Expiración Licencia (YYYYMMDD)", Description = "Formato AAAAMMDD. Ejemplo: 20261231. Usar 0 para sin expiración.", Order = 3, GroupName = "0. Licencia & Validación")]
-		public int LicenseExpirationDate { get; set; }
-		#endregion
-
-		#region Properties - 1. General & Posición
-		[NinjaScriptProperty]
-		[Display(Name = "Perfil Predeterminado de Cuenta", Description = "Selecciona la configuración recomendada según el tamaño de tu cuenta de fondeo (50K, 100K, 150K o Personalizado).", Order = 1, GroupName = "1. General & Posición")]
-		public PerfilCuentaFondeo PerfilCuenta { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Contratos / Lotes", Order = 2, GroupName = "1. General & Posición")]
-		public int Contracts { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Habilitar Compras (Longs)", Order = 2, GroupName = "1. General & Posición")]
-		public bool EnableLongs { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Habilitar Ventas (Shorts)", Order = 3, GroupName = "1. General & Posición")]
-		public bool EnableShorts { get; set; }
-		#endregion
-
-		#region Properties - 2. EMAs & Indicadores
-		[NinjaScriptProperty]
-		[Range(1, int.MaxValue)]
-		[Display(Name = "Período EMA Rápida", Order = 1, GroupName = "2. Indicadores & Tendencia")]
-		public int FastPeriod { get; set; }
-
-		[NinjaScriptProperty]
-		[Range(1, int.MaxValue)]
-		[Display(Name = "Período EMA Media", Order = 2, GroupName = "2. Indicadores & Tendencia")]
-		public int MidPeriod { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Mostrar EMAs en Gráfico", Order = 3, GroupName = "2. Indicadores & Tendencia")]
-		public bool ShowEMAs { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Usar Filtro Pendiente EMA", Order = 4, GroupName = "2. Indicadores & Tendencia")]
-		public bool UseEmaSlopeFilter { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Pendiente Mínima Mid Long (Ticks)", Order = 5, GroupName = "2. Indicadores & Tendencia")]
-		public double LongMinMidSlopeTicks { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Usar Filtro de Apilamiento EMA", Order = 6, GroupName = "2. Indicadores & Tendencia")]
-		public bool UseEmaStackFilter { get; set; }
-		#endregion
-
-		#region Properties - 3. Filtros de Señal
-		[NinjaScriptProperty]
-		[Display(Name = "Usar Filtro de Cuerpo de Vela", Order = 1, GroupName = "3. Filtros de Señal")]
-		public bool UseBaseBodyFilter { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Cuerpo Mínimo de Vela (Ticks)", Order = 2, GroupName = "3. Filtros de Señal")]
-		public int BaseMinSignalBodyTicks { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Cuerpo Máximo de Vela (Ticks)", Order = 3, GroupName = "3. Filtros de Señal")]
-		public int BaseMaxSignalBodyTicks { get; set; }
-		#endregion
-
-		#region Properties - 4. Filtro Horario
-		[NinjaScriptProperty]
-		[Display(Name = "Hora Inicio Sesión (HHMMSS)", Order = 1, GroupName = "4. Filtro Horario")]
-		public int StartTime { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Hora Fin Sesión (HHMMSS)", Order = 2, GroupName = "4. Filtro Horario")]
-		public int EndTime { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Cerrar Posición al Finalizar Horario", Order = 3, GroupName = "4. Filtro Horario")]
-		public bool ExitAfterEndTime { get; set; }
-		#endregion
-
-		#region Properties - 5. Control de Riesgo Diario
-		[NinjaScriptProperty]
-		[Display(Name = "Usar Bloqueo PnL Diario", Order = 1, GroupName = "5. Control de Riesgo Diario")]
-		public bool UseDailyPnLLock { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Pérdida Máxima Diaria ($)", Order = 2, GroupName = "5. Control de Riesgo Diario")]
-		public double DailyMaxLossDollars { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Objetivo de Ganancia Diario ($)", Order = 3, GroupName = "5. Control de Riesgo Diario")]
-		public double DailyProfitTargetDollars { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Máximo Operaciones por Día", Order = 4, GroupName = "5. Control de Riesgo Diario")]
-		public int MaxTradesPerDay { get; set; }
-		#endregion
-
-		#region Properties - 6. Stops & Objetivos
-		[NinjaScriptProperty]
-		[Display(Name = "Long Stop Loss (Ticks)", Order = 1, GroupName = "6. Stops & Objetivos")]
-		public int LongStopLossTicks { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Short Stop Loss (Ticks)", Order = 2, GroupName = "6. Stops & Objetivos")]
-		public int ShortStopLossTicks { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Long Profit Target (Ticks)", Order = 3, GroupName = "6. Stops & Objetivos")]
-		public int LongProfitTargetTicks { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Short Profit Target (Ticks)", Order = 4, GroupName = "6. Stops & Objetivos")]
-		public int ShortProfitTargetTicks { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Usar Breakeven", Order = 5, GroupName = "6. Stops & Objetivos")]
-		public bool UseBreakeven { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Trigger Breakeven Long (Ticks)", Order = 6, GroupName = "6. Stops & Objetivos")]
-		public int LongBreakevenTriggerTicks { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Breakeven Offset Long (Ticks)", Order = 7, GroupName = "6. Stops & Objetivos")]
-		public int LongBreakevenPlusTicks { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Usar Trailing Stop", Order = 8, GroupName = "6. Stops & Objetivos")]
-		public bool UseTrailingStop { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Trigger Trailing Stop Long (Ticks)", Order = 9, GroupName = "6. Stops & Objetivos")]
-		public int LongTrailTriggerTicks { get; set; }
-
-		[NinjaScriptProperty]
-		[Display(Name = "Distancia Trailing Stop Long (Ticks)", Order = 10, GroupName = "6. Stops & Objetivos")]
-		public int LongTrailDistanceTicks { get; set; }
-		#endregion
-
-		protected override void OnStateChange()
-		{
-			if (State == State.SetDefaults)
-			{
-				Description							= "Estrategia de trading de futuros personalizada para apertura de mercado con validación de licencias y cuentas autorizadas.";
-				Name								= "BotAperturaMercado";
-				Calculate							= Calculate.OnBarClose;
-				IsInstantiatedOnEachOptimizationProperty = true;
-				IsExitOnSessionCloseStrategy		= true;
-				ExitOnSessionCloseSeconds			= 30;
-				BarsRequiredToTrade					= 20;
-
-				// Configuración de Licencia
-				UseAccountValidation				= true;
-				AuthorizedAccountNames				= "Sim101, PA_APEX_123456, MI_CUENTA_REAL";
-				LicenseExpirationDate				= 20261231; // Ejemplo: 31 de Diciembre de 2026
-
-				// Parámetros por Defecto
-				Contracts							= 1;
-				EnableLongs							= true;
-				EnableShorts						= true;
-
-				FastPeriod							= 9;
-				MidPeriod							= 21;
-				ShowEMAs							= true;
-				UseEmaSlopeFilter					= true;
-				LongMinMidSlopeTicks				= 0.5;
-				UseEmaStackFilter					= true;
-
-				UseBaseBodyFilter					= true;
-				BaseMinSignalBodyTicks				= 4;
-				BaseMaxSignalBodyTicks				= 40;
-
-				StartTime							= 93000;
-				EndTime								= 154500;
-				ExitAfterEndTime					= true;
-
-				UseDailyPnLLock						= true;
-				DailyMaxLossDollars					= 500;
-				DailyProfitTargetDollars			= 1000;
-				MaxTradesPerDay						= 5;
-
-				LongStopLossTicks					= 30;
-				ShortStopLossTicks					= 30;
-				LongProfitTargetTicks				= 60;
-				ShortProfitTargetTicks				= 60;
-
-				UseBreakeven						= true;
-				LongBreakevenTriggerTicks			= 20;
-				LongBreakevenPlusTicks				= 2;
-
-				UseTrailingStop						= true;
-				LongTrailTriggerTicks				= 30;
-				LongTrailDistanceTicks				= 15;
-			}
-			else if (State == State.Configure)
-			{
-				ApplyAccountPreset();
-				SetStopLoss(CalculationMode.Ticks, LongStopLossTicks);
-				SetProfitTarget(CalculationMode.Ticks, LongProfitTargetTicks);
-			}
-			else if (State == State.DataLoaded)
-			{
-				// Validar cuenta y licencia al cargar datos
-				ValidateAccountAndLicense();
-
-				emaFast = EMA(FastPeriod);
-				emaMid = EMA(MidPeriod);
-
-				if (ShowEMAs)
-				{
-					AddChartIndicator(emaFast);
-					AddChartIndicator(emaMid);
-				}
-			}
-			else if (State == State.Historical)
-			{
-				if (ChartControl != null)
-				{
-					ChartControl.Dispatcher.InvokeAsync(() => { CreateWpfHudPanel(); });
-				}
-			}
-			else if (State == State.Terminated)
-			{
-				if (ChartControl != null)
-				{
-					ChartControl.Dispatcher.InvokeAsync(() => { DisposeWpfHudPanel(); });
-				}
-			}
-		}
-
-		/// <summary>
-		/// Aplica automáticamente los parámetros predeterminados según el perfil de cuenta seleccionado o auto-detectado.
-		/// </summary>
-		private void ApplyAccountPreset()
-		{
-			PerfilCuentaFondeo perfilAAplicar = PerfilCuenta;
-
-			if (perfilAAplicar == PerfilCuentaFondeo.AutoDeteccion)
-			{
-				double cash = 50000;
-				string name = "";
-				if (Account != null)
-				{
-					try { cash = Account.Get(AccountItem.CashValue, Currency.Usd); } catch {}
-					name = Account.Name.ToUpper();
-				}
-
-				if (cash >= 140000 || name.Contains("150K") || name.Contains("150000"))
-				{
-					perfilAAplicar = PerfilCuentaFondeo.Cuenta_150K;
-					Print("[AUTO-DETECCIÓN INTELIGENTE] Cuenta de 150K detectada automáticamente (" + (Account != null ? Account.Name : "") + "). Aplicando perfil 150K (15 NQ, -$1500 Max Loss, Target +$3000).");
-				}
-				else if (cash >= 90000 || name.Contains("100K") || name.Contains("100000"))
-				{
-					perfilAAplicar = PerfilCuentaFondeo.Cuenta_100K;
-					Print("[AUTO-DETECCIÓN INTELIGENTE] Cuenta de 100K detectada automáticamente (" + (Account != null ? Account.Name : "") + "). Aplicando perfil 100K (5 NQ, -$1000 Max Loss, Target +$2000).");
-				}
-				else
-				{
-					perfilAAplicar = PerfilCuentaFondeo.Cuenta_50K;
-					Print("[AUTO-DETECCIÓN INTELIGENTE] Cuenta de 50K detectada automáticamente (" + (Account != null ? Account.Name : "") + "). Aplicando perfil 50K (2 NQ, -$500 Max Loss, Target +$1000).");
-				}
-			}
-
-			if (perfilAAplicar == PerfilCuentaFondeo.Cuenta_50K)
-			{
-				Contracts = 2;
-				DailyMaxLossDollars = 500;
-				DailyProfitTargetDollars = 1000;
-				LongStopLossTicks = 30;
-				ShortStopLossTicks = 30;
-				LongProfitTargetTicks = 60;
-				ShortProfitTargetTicks = 60;
-				Print("[PRESET APLICADO] Perfil Cuenta 50K Fondeo: 2 Contratos NQ, Max Loss $500, Target $1000.");
-			}
-			else if (perfilAAplicar == PerfilCuentaFondeo.Cuenta_100K)
-			{
-				Contracts = 5;
-				DailyMaxLossDollars = 1000;
-				DailyProfitTargetDollars = 2000;
-				LongStopLossTicks = 40;
-				ShortStopLossTicks = 40;
-				LongProfitTargetTicks = 80;
-				ShortProfitTargetTicks = 80;
-				Print("[PRESET APLICADO] Perfil Cuenta 100K Fondeo: 5 Contratos NQ, Max Loss $1000, Target $2000.");
-			}
-			else if (perfilAAplicar == PerfilCuentaFondeo.Cuenta_150K)
-			{
-				Contracts = 15;
-				DailyMaxLossDollars = 1500;
-				DailyProfitTargetDollars = 3000;
-				LongStopLossTicks = 103;
-				ShortStopLossTicks = 103;
-				LongProfitTargetTicks = 384;
-				ShortProfitTargetTicks = 384;
-				Print("[PRESET APLICADO] Perfil Cuenta 150K Fondeo: 15 Contratos NQ, Max Loss $1500, Target $3000.");
-			}
-		}
-
-		/// <summary>
-		/// Sistema de Validación de Licencia por Nombre de Cuenta y Expiración.
-		/// </summary>
-		private void ValidateAccountAndLicense()
-		{
-			if (!UseAccountValidation)
-			{
-				isAccountAuthorized = true;
-				return;
-			}
-
-			// 1. Verificar Fecha de Expiración
-			if (LicenseExpirationDate > 0)
-			{
-				int todayInt = int.Parse(DateTime.Now.ToString("yyyyMMdd"));
-				if (todayInt > LicenseExpirationDate)
-				{
-					isAccountAuthorized = false;
-					Print("[LICENCIA EXPIRADA] La licencia de esta estrategia venció en la fecha: " + LicenseExpirationDate);
-					Draw.TextFixed(this, "LicenseError", "ERROR: Licencia Expirada (" + LicenseExpirationDate + ")", TextPosition.Center, Brushes.Red, new Gui.Tools.SimpleFont("Arial", 16), Brushes.Black, Brushes.Red, 100);
-					return;
-				}
-			}
-
-			// 2. Verificar Nombre de la Cuenta Activa
-			string currentAccount = Account != null ? Account.Name.Trim() : "";
-			string[] allowedAccounts = AuthorizedAccountNames.Split(',');
-			bool matchFound = false;
-
-			foreach (string acc in allowedAccounts)
-			{
-				if (acc.Trim().Equals(currentAccount, StringComparison.OrdinalIgnoreCase))
-				{
-					matchFound = true;
-					break;
-				}
-			}
-
-			if (!matchFound)
-			{
-				isAccountAuthorized = false;
-				Print("[LICENCIA DENEGADA] La cuenta '" + currentAccount + "' NO está autorizada.");
-				Draw.TextFixed(this, "LicenseError", "ACCESO DENEGADO: Cuenta '" + currentAccount + "' no autorizada.", TextPosition.Center, Brushes.Red, new Gui.Tools.SimpleFont("Arial", 16), Brushes.Black, Brushes.Red, 100);
-			}
-			else
-			{
-				isAccountAuthorized = true;
-				Print("[LICENCIA CORRECTA] Cuenta '" + currentAccount + "' verificada exitosamente.");
-			}
-		}
-
-		protected override void OnBarUpdate()
-		{
-			if (CurrentBar < BarsRequiredToTrade || !isAccountAuthorized)
-				return;
-
-			// Restablecimiento de métricas al cambiar de día
-			if (Time[0].Date != currentTradeDate)
-			{
-				currentTradeDate = Time[0].Date;
-				dailyCumProfit = 0;
-				tradesTodayCount = 0;
-				dailyPnLocked = false;
-				pmHigh = double.MinValue;
-				pmLow = double.MaxValue;
-			}
-
-			// Pintar análisis visual en velas (Chart Painting)
-			PaintChartSpanish();
-
-			if (UseDailyPnLLock && dailyPnLocked)
-				return;
-
-			// Filtro Horario con Aviso de Protección
-			int timeNow = ToTime(Time[0]);
-			if (timeNow < StartTime || timeNow > EndTime)
-			{
-				Draw.TextFixed(this, "TimeProtection", "ESTADO: BLOQUEADO POR PROTECCIÓN (FUERA DE HORARIO 09:30-15:50)", TextPosition.TopRight, Brushes.Orange, new Gui.Tools.SimpleFont("Arial", 12), Brushes.Black, Brushes.DarkOrange, 90);
-
-				if (ExitAfterEndTime && Position.MarketPosition != MarketPosition.Flat)
-				{
-					if (Position.MarketPosition == MarketPosition.Long) ExitLong();
-					else if (Position.MarketPosition == MarketPosition.Short) ExitShort();
-				}
-				return;
-			}
-			else
-			{
-				RemoveDrawObject("TimeProtection");
-			}
-
-			if (tradesTodayCount >= MaxTradesPerDay || isPaused)
-				return;
-
-			double candleBodyTicks = Math.Abs(Close[0] - Open[0]) / TickSize;
-			double midSlope = (emaMid[0] - emaMid[1]) / TickSize;
-
-			// ENTRADA LONG
-			if (EnableLongs && Position.MarketPosition == MarketPosition.Flat)
-			{
-				bool emaTrendOk = !UseEmaStackFilter || (emaFast[0] > emaMid[0]);
-				bool slopeOk = !UseEmaSlopeFilter || (midSlope >= LongMinMidSlopeTicks);
-				bool bodyOk = !UseBaseBodyFilter || (candleBodyTicks >= BaseMinSignalBodyTicks && candleBodyTicks <= BaseMaxSignalBodyTicks);
-				bool pullbackOk = (Low[0] <= emaFast[0] || Low[0] <= emaMid[0]);
-
-				if (emaTrendOk && slopeOk && bodyOk && pullbackOk && Close[0] > Open[0])
-				{
-					SetStopLoss(CalculationMode.Ticks, LongStopLossTicks);
-					SetProfitTarget(CalculationMode.Ticks, LongProfitTargetTicks);
-					EnterLong(Contracts, "MiEstrategia_Long");
-					tradesTodayCount++;
-				}
-			}
-			// ENTRADA SHORT
-			else if (EnableShorts && Position.MarketPosition == MarketPosition.Flat)
-			{
-				bool emaTrendOk = !UseEmaStackFilter || (emaFast[0] < emaMid[0]);
-				bool slopeOk = !UseEmaSlopeFilter || (midSlope <= -LongMinMidSlopeTicks);
-				bool bodyOk = !UseBaseBodyFilter || (candleBodyTicks >= BaseMinSignalBodyTicks && candleBodyTicks <= BaseMaxSignalBodyTicks);
-				bool pullbackOk = (High[0] >= emaFast[0] || High[0] >= emaMid[0]);
-
-				if (emaTrendOk && slopeOk && bodyOk && pullbackOk && Close[0] < Open[0])
-				{
-					SetStopLoss(CalculationMode.Ticks, ShortStopLossTicks);
-					SetProfitTarget(CalculationMode.Ticks, ShortProfitTargetTicks);
-					EnterShort(Contracts, "MiEstrategia_Short");
-					tradesTodayCount++;
-				}
-			}
-
-			// GESTIÓN DE POSICIÓN ABIERTA (Breakeven & Trailing Stop)
-			if (Position.MarketPosition != MarketPosition.Flat)
-			{
-				double openProfitTicks = (Position.MarketPosition == MarketPosition.Long) 
-					? (Close[0] - Position.AveragePrice) / TickSize
-					: (Position.AveragePrice - Close[0]) / TickSize;
-
-				if (UseBreakeven && openProfitTicks >= LongBreakevenTriggerTicks)
-				{
-					SetStopLoss(CalculationMode.Ticks, -LongBreakevenPlusTicks);
-				}
-
-				if (UseTrailingStop && openProfitTicks >= LongTrailTriggerTicks)
-				{
-					double trailPrice = (Position.MarketPosition == MarketPosition.Long)
-						? Close[0] - (LongTrailDistanceTicks * TickSize)
-						: Close[0] + (LongTrailDistanceTicks * TickSize);
-					SetStopLoss(CalculationMode.Price, trailPrice);
-				}
-			}
-		}
-
-		protected override void OnExecutionUpdate(Execution execution, string executionId, double price, int quantity, MarketPosition marketPosition, string orderId, DateTime time)
-		{
-			if (SystemPerformance.AllTrades.Count > 0)
-			{
-				Trade lastTrade = SystemPerformance.AllTrades[SystemPerformance.AllTrades.Count - 1];
-				dailyCumProfit += lastTrade.ProfitCurrency;
-
-				if (UseDailyPnLLock)
-				{
-					if (dailyCumProfit <= -Math.Abs(DailyMaxLossDollars) || dailyCumProfit >= DailyProfitTargetDollars)
-					{
-						dailyPnLocked = true;
-					}
-				}
-			}
-
-			// Pintar marcadores de entrada y salida en velas
-			if (execution != null)
-			{
-				botTradeTagCounter++;
-				if (marketPosition == MarketPosition.Long)
-				{
-					Draw.ArrowUp(this, "EXEC_BUY_" + botTradeTagCounter, false, 0, Low[0] - TickSize * 5, Brushes.Lime);
-					Draw.Text(this, "EXEC_BUY_LBL_" + botTradeTagCounter, false, $"▲ COMPRA {quantity}x @{price:F2}", 0, Low[0] - TickSize * 15, 0, Brushes.Lime, new SimpleFont("Arial", 8), TextAlignment.Center, Brushes.Transparent, Brushes.Transparent, 0);
-				}
-				else if (marketPosition == MarketPosition.Short)
-				{
-					Draw.ArrowDown(this, "EXEC_SELL_" + botTradeTagCounter, false, 0, High[0] + TickSize * 5, Brushes.Red);
-					Draw.Text(this, "EXEC_SELL_LBL_" + botTradeTagCounter, false, $"▼ VENTA {quantity}x @{price:F2}", 0, High[0] + TickSize * 15, 0, Brushes.Red, new SimpleFont("Arial", 8), TextAlignment.Center, Brushes.Transparent, Brushes.Transparent, 0);
-				}
-				else if (marketPosition == MarketPosition.Flat)
-				{
-					Draw.Diamond(this, "EXEC_EXIT_" + botTradeTagCounter, false, 0, High[0] + TickSize * 5, Brushes.Gold);
-					Draw.Text(this, "EXEC_EXIT_LBL_" + botTradeTagCounter, false, $"💎 SALIDA DE POSICIÓN @{price:F2}", 0, High[0] + TickSize * 12, 0, Brushes.Gold, new SimpleFont("Arial", 8), TextAlignment.Center, Brushes.Transparent, Brushes.Transparent, 0);
-				}
-			}
-
-			PaintChartSpanish();
-		}
-
-		// ═══════════════════════════════════════════════════════════════════
-		//  ANÁLISIS DIBUJADO EN VELAS (Chart Painting en Español)
-		// ═══════════════════════════════════════════════════════════════════
-		private void PaintChartSpanish()
-		{
-			int timeNow = ToTime(Time[0]);
-
-			// 1. ZONA PRE-MERCADO (Antes de StartTime 09:30)
-			if (timeNow < StartTime)
-			{
-				BackBrushes[0] = BrushPMZone;
-				if (High[0] > pmHigh) pmHigh = High[0];
-				if (Low[0] < pmLow)   pmLow  = Low[0];
-
-				if (pmHigh != double.MinValue)
-				{
-					Draw.HorizontalLine(this, "PM_HIGH_SP", pmHigh, new Stroke(Brushes.MediumOrchid, DashStyleHelper.Dash, 1));
-					Draw.Text(this, "PM_HIGH_LBL_SP", false, "MÁXIMO PRE-MERCADO", 0, pmHigh, 6, Brushes.MediumOrchid, new SimpleFont("Arial", 7), TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 0);
-				}
-				if (pmLow != double.MaxValue)
-				{
-					Draw.HorizontalLine(this, "PM_LOW_SP", pmLow, new Stroke(Brushes.MediumOrchid, DashStyleHelper.Dash, 1));
-					Draw.Text(this, "PM_LOW_LBL_SP", false, "MÍNIMO PRE-MERCADO", 0, pmLow, -6, Brushes.MediumOrchid, new SimpleFont("Arial", 7), TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 0);
-				}
-				return;
-			}
-
-			// 2. SESIÓN DE TRADING ACTIVA (09:30 - 15:50)
-			if (timeNow >= StartTime && timeNow <= EndTime)
-			{
-				if (timeNow == StartTime)
-				{
-					Draw.VerticalLine(this, "START_TIME_LINE", 0, new Stroke(Brushes.Cyan, DashStyleHelper.Dash, 2));
-					Draw.Text(this, "START_TIME_LBL", false, "⚡ APERTURA DE MERCADO (09:30)", 0, High[0] + TickSize * 10, 0, Brushes.Cyan, new SimpleFont("Arial", 8), TextAlignment.Center, Brushes.Cyan, new SolidColorBrush(Color.FromArgb(60, 0, 200, 255)), 80);
-				}
-
-				if (Position.MarketPosition == MarketPosition.Long)
-				{
-					BackBrushes[0] = BrushInTradeLong;
-					double sl = Position.AveragePrice - (LongStopLossTicks * TickSize);
-					double tp = Position.AveragePrice + (LongProfitTargetTicks * TickSize);
-
-					Draw.HorizontalLine(this, "LIVE_SL", sl, new Stroke(Brushes.Red, DashStyleHelper.Dot, 2));
-					Draw.Text(this, "LIVE_SL_LBL", false, $"🔴 STOP LOSS  {sl:F2}", 0, sl, -8, Brushes.Red, new SimpleFont("Arial", 8), TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 0);
-
-					Draw.HorizontalLine(this, "LIVE_TP", tp, new Stroke(Brushes.LimeGreen, DashStyleHelper.Dot, 2));
-					Draw.Text(this, "LIVE_TP_LBL", false, $"🟢 TAKE PROFIT  {tp:F2}", 0, tp, 8, Brushes.LimeGreen, new SimpleFont("Arial", 8), TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 0);
-
-					Draw.HorizontalLine(this, "LIVE_ENTRY", Position.AveragePrice, new Stroke(Brushes.White, DashStyleHelper.Solid, 1));
-					Draw.Text(this, "LIVE_ENTRY_LBL", false, $"📍 PRECIO ENTRADA  {Position.AveragePrice:F2}", 0, Position.AveragePrice, 0, Brushes.White, new SimpleFont("Arial", 8), TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 0);
-				}
-				else if (Position.MarketPosition == MarketPosition.Short)
-				{
-					BackBrushes[0] = BrushInTradeShort;
-					double sl = Position.AveragePrice + (ShortStopLossTicks * TickSize);
-					double tp = Position.AveragePrice - (ShortProfitTargetTicks * TickSize);
-
-					Draw.HorizontalLine(this, "LIVE_SL", sl, new Stroke(Brushes.Red, DashStyleHelper.Dot, 2));
-					Draw.Text(this, "LIVE_SL_LBL", false, $"🔴 STOP LOSS  {sl:F2}", 0, sl, 8, Brushes.Red, new SimpleFont("Arial", 8), TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 0);
-
-					Draw.HorizontalLine(this, "LIVE_TP", tp, new Stroke(Brushes.LimeGreen, DashStyleHelper.Dot, 2));
-					Draw.Text(this, "LIVE_TP_LBL", false, $"🟢 TAKE PROFIT  {tp:F2}", 0, tp, -8, Brushes.LimeGreen, new SimpleFont("Arial", 8), TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 0);
-
-					Draw.HorizontalLine(this, "LIVE_ENTRY", Position.AveragePrice, new Stroke(Brushes.White, DashStyleHelper.Solid, 1));
-					Draw.Text(this, "LIVE_ENTRY_LBL", false, $"📍 PRECIO ENTRADA  {Position.AveragePrice:F2}", 0, Position.AveragePrice, 0, Brushes.White, new SimpleFont("Arial", 8), TextAlignment.Right, Brushes.Transparent, Brushes.Transparent, 0);
-				}
-				else
-				{
-					RemoveDrawObject("LIVE_SL");
-					RemoveDrawObject("LIVE_TP");
-					RemoveDrawObject("LIVE_ENTRY");
-					BackBrushes[0] = BrushActiveZone;
-				}
-			}
-
-			// 3. FIN DE SESIÓN (15:50 Force Flat)
-			if (timeNow >= EndTime)
-			{
-				Draw.VerticalLine(this, "END_TIME_LINE", 0, new Stroke(Brushes.OrangeRed, DashStyleHelper.Dot, 2));
-				Draw.Text(this, "END_TIME_LBL", false, "⚠ FORCE FLAT (15:50)", 0, High[0] + TickSize * 10, 0, Brushes.OrangeRed, new SimpleFont("Arial", 8), TextAlignment.Center, Brushes.OrangeRed, new SolidColorBrush(Color.FromArgb(50, 255, 80, 0)), 80);
-				BackBrushes[0] = new SolidColorBrush(Color.FromArgb(20, 150, 150, 150));
-			}
-		}
-
-		#region WPF HUD Panel Controls
-		private void CreateWpfHudPanel()
-		{
-			if (ChartControl == null) return;
-			chartGrid = (ChartControl.Parent as Grid);
-			if (chartGrid == null) return;
-
-			hudBorder = new Border
-			{
-				Background = new SolidColorBrush(Color.FromArgb(230, 15, 23, 42)),
-				BorderBrush = new SolidColorBrush(Color.FromRgb(2, 132, 199)),
-				BorderThickness = new Thickness(2),
-				CornerRadius = new CornerRadius(10),
-				HorizontalAlignment = HorizontalAlignment.Left,
-				VerticalAlignment = VerticalAlignment.Top,
-				Margin = new Thickness(15, 15, 0, 0),
-				Padding = new Thickness(12),
-				Width = 320
-			};
-
-			StackPanel panel = new StackPanel();
-
-			TextBlock headerText = new TextBlock
-			{
-				Text = "BOT DE APERTURA FUTUROS",
-				Foreground = Brushes.White,
-				FontWeight = FontWeights.Bold,
-				FontSize = 14,
-				HorizontalAlignment = HorizontalAlignment.Center,
-				Margin = new Thickness(0, 0, 0, 8)
-			};
-			panel.Children.Add(headerText);
-
-			statusText = new TextBlock
-			{
-				Text = "ESTADO: ACTIVO / LIVE",
-				Foreground = Brushes.LightGreen,
-				FontWeight = FontWeights.SemiBold,
-				FontSize = 12,
-				HorizontalAlignment = HorizontalAlignment.Center,
-				Margin = new Thickness(0, 0, 0, 8)
-			};
-			panel.Children.Add(statusText);
-
-			pnlText = new TextBlock
-			{
-				Text = "PnL Realizado: $0.00 | Trades: 0",
-				Foreground = Brushes.Cyan,
-				FontSize = 11,
-				HorizontalAlignment = HorizontalAlignment.Center,
-				Margin = new Thickness(0, 0, 0, 10)
-			};
-			panel.Children.Add(pnlText);
-
-			// Botones de Acción
-			btnFlatten = new Button
-			{
-				Content = "🚨 FLATTEN & CANCEL ALL",
-				Background = new SolidColorBrush(Color.FromRgb(239, 68, 68)),
-				Foreground = Brushes.White,
-				FontWeight = FontWeights.Bold,
-				Height = 32,
-				Margin = new Thickness(0, 4, 0, 4),
-				Cursor = System.Windows.Input.Cursors.Hand
-			};
-			btnFlatten.Click += (s, e) => FlattenAndCancelAll();
-			panel.Children.Add(btnFlatten);
-
-			btnPause = new Button
-			{
-				Content = "⏸️ PAUSE BOT",
-				Background = new SolidColorBrush(Color.FromRgb(249, 115, 22)),
-				Foreground = Brushes.White,
-				FontWeight = FontWeights.Bold,
-				Height = 28,
-				Margin = new Thickness(0, 2, 0, 2),
-				Cursor = System.Windows.Input.Cursors.Hand
-			};
-			btnPause.Click += (s, e) => TogglePauseBot();
-			panel.Children.Add(btnPause);
-
-			btnReset = new Button
-			{
-				Content = "🟢 RESET PnL",
-				Background = new SolidColorBrush(Color.FromRgb(16, 185, 129)),
-				Foreground = Brushes.White,
-				FontWeight = FontWeights.Bold,
-				Height = 28,
-				Margin = new Thickness(0, 2, 0, 2),
-				Cursor = System.Windows.Input.Cursors.Hand
-			};
-			btnReset.Click += (s, e) => ResetDailyPnL();
-			panel.Children.Add(btnReset);
-
-			hudBorder.Child = panel;
-			chartGrid.Children.Add(hudBorder);
-		}
-
-		private void DisposeWpfHudPanel()
-		{
-			if (chartGrid != null && hudBorder != null)
-			{
-				chartGrid.Children.Remove(hudBorder);
-				hudBorder = null;
-			}
-		}
-
-		private void FlattenAndCancelAll()
-		{
-			if (Position.MarketPosition == MarketPosition.Long) ExitLong();
-			else if (Position.MarketPosition == MarketPosition.Short) ExitShort();
-
-			if (Account != null)
-			{
-				foreach (Order o in Account.Orders)
-				{
-					if (o.OrderState == OrderState.Working || o.OrderState == OrderState.Submitted)
-					{
-						Account.Cancel(new[] { o });
-					}
-				}
-			}
-			Print("[BOT APERTURA] ¡FLATTEN & CANCEL ALL EJECUTADO!");
-		}
-
-		private void TogglePauseBot()
-		{
-			isPaused = !isPaused;
-			if (btnPause != null)
-			{
-				btnPause.Content = isPaused ? "▶️ RESUME BOT" : "⏸️ PAUSE BOT";
-				btnPause.Background = isPaused ? Brushes.Red : new SolidColorBrush(Color.FromRgb(249, 115, 22));
-			}
-			if (statusText != null)
-			{
-				statusText.Text = isPaused ? "ESTADO: PAUSADO" : "ESTADO: ACTIVO / LIVE";
-				statusText.Foreground = isPaused ? Brushes.OrangeRed : Brushes.LightGreen;
-			}
-			Print("[BOT APERTURA] Estado de pausa cambiado a: " + isPaused);
-		}
-
-		private void ResetDailyPnL()
-		{
-			dailyCumProfit = 0;
-			dailyPnLocked = false;
-			tradesTodayCount = 0;
-			if (pnlText != null)
-			{
-				pnlText.Text = "PnL Realizado: $0.00 | Trades: 0";
-			}
-			Print("[BOT APERTURA] PnL Diario Reiniciado.");
-		}
-		#endregion
-	}
+    public class BotAperturaMercado : Strategy
+    {
+        public enum BAM_PerfilCuenta { Cuenta_50K, Cuenta_100K, Cuenta_150K, Personalizado }
+
+        // Campos privados
+        private EMA      bam_rapida;
+        private EMA      bam_media;
+        private double   bam_pnl        = 0;
+        private int      bam_ops        = 0;
+        private bool     bam_lock       = false;
+        private bool     bam_ok         = true;
+        private int      bam_tag        = 0;
+        private DateTime bam_dia        = DateTime.MinValue;
+        private int      bam_currentStage = 0; // 0: Ninguno, 1: +$320, 2: +$820, 3: +$1050, 4: +$1600
+        private double   bam_highWater  = 0;
+
+        // Rango Pre-Mercado (08:00 - 09:30 AM)
+        private double   preHigh        = double.MinValue;
+        private double   preLow         = double.MaxValue;
+        private int      preStartBar    = -1;
+
+        // Elementos UI WPF HUD (Semi-transparente Glassmorphism)
+        private Border      hudBorder;
+        private TextBlock   statusText;
+        private TextBlock   realizedPnlText;
+        private TextBlock   openPnlText;
+        private TextBlock   tradesTodayText;
+        private TextBlock   progressPctText;
+        private Border      progressBarFill;
+        private Button      btnFlatten;
+        private Button      btnPause;
+        private Button      btnReset;
+        private Button      btnMinimize;
+        private Grid        topRow;
+        private Grid        midRow;
+        private Border      progressBox;
+        private Border      pnlBar;
+        private Grid        btnGrid;
+        private bool        isPaused    = false;
+        private bool        isCollapsed = false;
+
+        // Arrastrar ventana
+        private Point       dragStart;
+        private bool        isDragging = false;
+
+        // Propiedades con prefijo BAM_ unico
+        #region 1_General
+        [NinjaScriptProperty]
+        [Display(Name = "Perfil de Cuenta", Order = 1, GroupName = "1_General")]
+        public BAM_PerfilCuenta BAM_Perfil { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Contratos", Order = 2, GroupName = "1_General")]
+        public int BAM_Contratos { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Permitir Longs", Order = 3, GroupName = "1_General")]
+        public bool BAM_Long { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Permitir Shorts", Order = 4, GroupName = "1_General")]
+        public bool BAM_Short { get; set; }
+        #endregion
+
+        #region 2_EMAs
+        [NinjaScriptProperty]
+        [Range(1, int.MaxValue)]
+        [Display(Name = "EMA Rapida Periodo", Order = 1, GroupName = "2_EMAs")]
+        public int BAM_EmaR { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1, int.MaxValue)]
+        [Display(Name = "EMA Media Periodo", Order = 2, GroupName = "2_EMAs")]
+        public int BAM_EmaM { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Filtro Stack EMA", Order = 3, GroupName = "2_EMAs")]
+        public bool BAM_Stack { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Filtro Slope EMA", Order = 4, GroupName = "2_EMAs")]
+        public bool BAM_Slope { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Slope Minimo (Ticks)", Order = 5, GroupName = "2_EMAs")]
+        public double BAM_SlopeVal { get; set; }
+        #endregion
+
+        #region 3_Filtros
+        [NinjaScriptProperty]
+        [Display(Name = "Filtro Cuerpo Vela", Order = 1, GroupName = "3_Filtros")]
+        public bool BAM_FiltroCuerpo { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Cuerpo Min Ticks", Order = 2, GroupName = "3_Filtros")]
+        public int BAM_CuerpoMin { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Cuerpo Max Ticks", Order = 3, GroupName = "3_Filtros")]
+        public int BAM_CuerpoMax { get; set; }
+        #endregion
+
+        #region 4_Horario
+        [NinjaScriptProperty]
+        [Display(Name = "Hora Inicio HHMMSS", Order = 1, GroupName = "4_Horario")]
+        public int BAM_HrIn { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Hora Fin HHMMSS", Order = 2, GroupName = "4_Horario")]
+        public int BAM_HrFin { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Cerrar al Fin Sesion", Order = 3, GroupName = "4_Horario")]
+        public bool BAM_CerrarFin { get; set; }
+        #endregion
+
+        #region 5_Riesgo
+        [NinjaScriptProperty]
+        [Display(Name = "Activar Limite PnL Diario", Order = 1, GroupName = "5_Riesgo")]
+        public bool BAM_LimitePnL { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Perdida Max Dia ($)", Order = 2, GroupName = "5_Riesgo")]
+        public double BAM_PerdMax { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Ganancia Obj Dia ($)", Order = 3, GroupName = "5_Riesgo")]
+        public double BAM_GanObj { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Max Trades Dia", Order = 4, GroupName = "5_Riesgo")]
+        public int BAM_MaxTrades { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Activar Escalera de Bloqueo (Profit Lock)", Order = 5, GroupName = "5_Riesgo")]
+        public bool BAM_UsarProfitLock { get; set; }
+        #endregion
+
+        #region 6_Stops
+        [NinjaScriptProperty]
+        [Display(Name = "SL Long Ticks", Order = 1, GroupName = "6_Stops")]
+        public int BAM_SLL { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "SL Short Ticks", Order = 2, GroupName = "6_Stops")]
+        public int BAM_SLS { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "TP Long Ticks", Order = 3, GroupName = "6_Stops")]
+        public int BAM_TPL { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "TP Short Ticks", Order = 4, GroupName = "6_Stops")]
+        public int BAM_TPS { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Usar Breakeven", Order = 5, GroupName = "6_Stops")]
+        public bool BAM_BE { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "BE Trigger Ticks", Order = 6, GroupName = "6_Stops")]
+        public int BAM_BETick { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "BE Offset Ticks", Order = 7, GroupName = "6_Stops")]
+        public int BAM_BEOfs { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Usar Trailing Stop", Order = 8, GroupName = "6_Stops")]
+        public bool BAM_TS { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "TS Trigger Ticks", Order = 9, GroupName = "6_Stops")]
+        public int BAM_TSTick { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "TS Distancia Ticks", Order = 10, GroupName = "6_Stops")]
+        public int BAM_TSDist { get; set; }
+        #endregion
+
+        protected override void OnStateChange()
+        {
+            try
+            {
+                if (State == State.SetDefaults)
+                {
+                    Description = "Bot de Apertura de Mercado - NinjaTrader 8";
+                    Name        = "BotAperturaMercado";
+                    Calculate   = Calculate.OnBarClose;
+                    IsInstantiatedOnEachOptimizationIteration = true;
+                    IsExitOnSessionCloseStrategy  = true;
+                    ExitOnSessionCloseSeconds     = 30;
+                    BarsRequiredToTrade           = 20;
+
+                    BAM_Perfil    = BAM_PerfilCuenta.Cuenta_50K;
+                    BAM_Contratos = 1;
+                    BAM_Long      = true;
+                    BAM_Short     = true;
+                    BAM_EmaR      = 9;
+                    BAM_EmaM      = 21;
+                    BAM_Stack     = true;
+                    BAM_Slope     = false;
+                    BAM_SlopeVal  = 0.5;
+                    BAM_FiltroCuerpo = true;
+                    BAM_CuerpoMin = 4;
+                    BAM_CuerpoMax = 40;
+                    BAM_HrIn      = 93000;
+                    BAM_HrFin     = 155000;
+                    BAM_CerrarFin = true;
+                    BAM_LimitePnL = true;
+                    BAM_PerdMax   = 500;
+                    BAM_GanObj    = 1000;
+                    BAM_MaxTrades = 5;
+                    BAM_UsarProfitLock = true; // Escalera de proteccion activada
+                    BAM_SLL       = 30;
+                    BAM_SLS       = 30;
+                    BAM_TPL       = 60;
+                    BAM_TPS       = 60;
+                    BAM_BE        = true;
+                    BAM_BETick    = 20;
+                    BAM_BEOfs     = 2;
+                    BAM_TS        = true;
+                    BAM_TSTick    = 30;
+                    BAM_TSDist    = 15;
+                }
+                else if (State == State.Configure)
+                {
+                    if (BAM_Perfil == BAM_PerfilCuenta.Cuenta_50K)
+                    { BAM_Contratos = 2; BAM_PerdMax = 500; BAM_GanObj = 1000; BAM_SLL = 30; BAM_SLS = 30; BAM_TPL = 60; BAM_TPS = 60; }
+                    else if (BAM_Perfil == BAM_PerfilCuenta.Cuenta_100K)
+                    { BAM_Contratos = 5; BAM_PerdMax = 1000; BAM_GanObj = 2000; BAM_SLL = 40; BAM_SLS = 40; BAM_TPL = 80; BAM_TPS = 80; }
+                    else if (BAM_Perfil == BAM_PerfilCuenta.Cuenta_150K)
+                    { BAM_Contratos = 15; BAM_PerdMax = 1500; BAM_GanObj = 3000; BAM_SLL = 103; BAM_SLS = 103; BAM_TPL = 384; BAM_TPS = 384; }
+
+                    if (BAM_SLL > 0) SetStopLoss("BAM_L", CalculationMode.Ticks, BAM_SLL, false);
+                    if (BAM_TPL > 0) SetProfitTarget("BAM_L", CalculationMode.Ticks, BAM_TPL);
+                    if (BAM_SLS > 0) SetStopLoss("BAM_S", CalculationMode.Ticks, BAM_SLS, false);
+                    if (BAM_TPS > 0) SetProfitTarget("BAM_S", CalculationMode.Ticks, BAM_TPS);
+                }
+                else if (State == State.DataLoaded)
+                {
+                    bam_rapida = EMA(BAM_EmaR);
+                    bam_media  = EMA(BAM_EmaM);
+                    Print("[BAM] Estrategia cargada correctamente.");
+
+                    if (ChartControl != null && ChartControl.Dispatcher != null)
+                    {
+                        ChartControl.Dispatcher.BeginInvoke(new Action(() => {
+                            if (hudBorder == null) CreateWpfHudPanel();
+                            else EnsureHudAttachedToChart();
+                        }), DispatcherPriority.Background);
+                    }
+                }
+                else if (State == State.Realtime)
+                {
+                    if (ChartControl != null && ChartControl.Dispatcher != null)
+                    {
+                        ChartControl.Dispatcher.BeginInvoke(new Action(() => {
+                            if (hudBorder == null) CreateWpfHudPanel();
+                            else EnsureHudAttachedToChart();
+                        }), DispatcherPriority.Normal);
+                    }
+                }
+                else if (State == State.Terminated)
+                {
+                    if (ChartControl != null && ChartControl.Dispatcher != null)
+                    {
+                        ChartControl.Dispatcher.BeginInvoke(new Action(() => { DisposeWpfHudPanel(); }), DispatcherPriority.Normal);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Print("[BAM OnStateChange ERROR] " + ex.Message);
+            }
+        }
+
+        protected override void OnBarUpdate()
+        {
+            try
+            {
+                if (ChartControl != null && ChartControl.Dispatcher != null && State == State.Realtime)
+                {
+                    ChartControl.Dispatcher.BeginInvoke(new Action(() => {
+                        if (hudBorder == null) CreateWpfHudPanel();
+                        else EnsureHudAttachedToChart();
+                    }), DispatcherPriority.Background);
+                }
+
+                if (Bars == null || CurrentBar < BarsRequiredToTrade) return;
+                if (!bam_ok || isPaused) return;
+                if (bam_rapida == null || bam_media == null) return;
+
+                MarketPosition pos = (Position != null) ? Position.MarketPosition : MarketPosition.Flat;
+                double avgPrice    = (Position != null) ? Position.AveragePrice : 0;
+                double openPnl     = (pos != MarketPosition.Flat) ? Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency, Close[0]) : 0;
+                double totalPnl    = bam_pnl + openPnl;
+
+                // Reset diario
+                if (Time != null && CurrentBar >= 0 && Time[0].Date != bam_dia)
+                {
+                    bam_dia          = Time[0].Date;
+                    bam_pnl          = 0;
+                    bam_ops          = 0;
+                    bam_lock         = false;
+                    bam_currentStage = 0;
+                    bam_highWater    = 0;
+                    preHigh          = double.MinValue;
+                    preLow           = double.MaxValue;
+                    preStartBar      = -1;
+                }
+
+                // EVALUACION DE LA ESCALERA DE PROTECCION DE GANANCIAS (PROFIT LOCK 4 STAGES)
+                if (BAM_UsarProfitLock)
+                {
+                    bam_highWater = Math.Max(bam_highWater, totalPnl);
+
+                    // Stage 4: Si alcanza +$1,800 -> Asegura minimo +$1,600
+                    if (bam_highWater >= 1800)
+                    {
+                        bam_currentStage = 4;
+                        if (totalPnl <= 1600 && pos != MarketPosition.Flat)
+                        {
+                            if (pos == MarketPosition.Long) ExitLong("BAM_L");
+                            else if (pos == MarketPosition.Short) ExitShort("BAM_S");
+                            bam_lock = true;
+                        }
+                    }
+                    // Stage 3: Si alcanza +$1,150 -> Asegura minimo +$1,050
+                    else if (bam_highWater >= 1150)
+                    {
+                        bam_currentStage = 3;
+                        if (totalPnl <= 1050 && pos != MarketPosition.Flat)
+                        {
+                            if (pos == MarketPosition.Long) ExitLong("BAM_L");
+                            else if (pos == MarketPosition.Short) ExitShort("BAM_S");
+                            bam_lock = true;
+                        }
+                    }
+                    // Stage 2: Si alcanza +$1,000 -> Asegura minimo +$820
+                    else if (bam_highWater >= 1000)
+                    {
+                        bam_currentStage = 2;
+                        if (totalPnl <= 820 && pos != MarketPosition.Flat)
+                        {
+                            if (pos == MarketPosition.Long) ExitLong("BAM_L");
+                            else if (pos == MarketPosition.Short) ExitShort("BAM_S");
+                            bam_lock = true;
+                        }
+                    }
+                    // Stage 1: Si alcanza +$600 -> Asegura minimo +$320
+                    else if (bam_highWater >= 600)
+                    {
+                        bam_currentStage = 1;
+                        if (totalPnl <= 320 && pos != MarketPosition.Flat)
+                        {
+                            if (pos == MarketPosition.Long) ExitLong("BAM_L");
+                            else if (pos == MarketPosition.Short) ExitShort("BAM_S");
+                            bam_lock = true;
+                        }
+                    }
+                }
+
+                if (State == State.Realtime) UpdateWpfHudMetrics();
+
+                int hr = ToTime(Time[0]);
+
+                // Analisis de Rango Pre-Mercado (08:00 AM - 09:29 AM)
+                if (hr >= 80000 && hr < BAM_HrIn)
+                {
+                    if (preStartBar < 0) preStartBar = CurrentBar;
+                    preHigh = Math.Max(preHigh, High[0]);
+                    preLow  = Math.Min(preLow, Low[0]);
+
+                    if (preHigh > double.MinValue && preLow < double.MaxValue && preStartBar >= 0)
+                    {
+                        int barsAgo = CurrentBar - preStartBar;
+                        Draw.Rectangle(this, "BAM_PreRange_" + bam_dia.ToString("yyyyMMdd"), false, barsAgo, preHigh, 0, preLow, Brushes.MediumPurple, Brushes.MediumPurple, 15);
+                    }
+                }
+
+                // Pintar Stop Loss y Take Profit solo cuando hay posicion abierta
+                BAM_Pintar(pos, avgPrice);
+
+                if (BAM_LimitePnL && bam_lock) return;
+
+                if (hr < BAM_HrIn || hr > BAM_HrFin)
+                {
+                    if (BAM_CerrarFin && pos != MarketPosition.Flat)
+                    {
+                        if (pos == MarketPosition.Long) ExitLong("BAM_L");
+                        else if (pos == MarketPosition.Short) ExitShort("BAM_S");
+                    }
+                    return;
+                }
+
+                if (bam_ops >= BAM_MaxTrades) return;
+
+                double cuerpo = Math.Abs(Close[0] - Open[0]) / TickSize;
+                double slope  = CurrentBar > 0 ? (bam_media[0] - bam_media[1]) / TickSize : 0;
+
+                // LONG
+                if (BAM_Long && pos == MarketPosition.Flat)
+                {
+                    bool stkOk = !BAM_Stack || bam_rapida[0] > bam_media[0];
+                    bool slpOk = !BAM_Slope || slope >= BAM_SlopeVal;
+                    bool cOk   = !BAM_FiltroCuerpo || (cuerpo >= BAM_CuerpoMin && cuerpo <= BAM_CuerpoMax);
+                    bool pull  = Low[0] <= bam_rapida[0] || Low[0] <= bam_media[0];
+                    if (stkOk && slpOk && cOk && pull && Close[0] > Open[0])
+                    {
+                        SetStopLoss("BAM_L", CalculationMode.Ticks, BAM_SLL, false);
+                        SetProfitTarget("BAM_L", CalculationMode.Ticks, BAM_TPL);
+                        EnterLong(BAM_Contratos, "BAM_L");
+                        bam_ops++;
+                    }
+                }
+                // SHORT
+                else if (BAM_Short && pos == MarketPosition.Flat)
+                {
+                    bool stkOk = !BAM_Stack || bam_rapida[0] < bam_media[0];
+                    bool slpOk = !BAM_Slope || slope <= -BAM_SlopeVal;
+                    bool cOk   = !BAM_FiltroCuerpo || (cuerpo >= BAM_CuerpoMin && cuerpo <= BAM_CuerpoMax);
+                    bool pull  = High[0] >= bam_rapida[0] || High[0] >= bam_media[0];
+                    if (stkOk && slpOk && cOk && pull && Close[0] < Open[0])
+                    {
+                        SetStopLoss("BAM_S", CalculationMode.Ticks, BAM_SLS, false);
+                        SetProfitTarget("BAM_S", CalculationMode.Ticks, BAM_TPS);
+                        EnterShort(BAM_Contratos, "BAM_S");
+                        bam_ops++;
+                    }
+                }
+
+                if (pos != MarketPosition.Flat && avgPrice > 0)
+                {
+                    double pt = (pos == MarketPosition.Long)
+                        ? (Close[0] - avgPrice) / TickSize
+                        : (avgPrice - Close[0]) / TickSize;
+
+                    if (BAM_BE && pt >= BAM_BETick)
+                    {
+                        double bePrice = (pos == MarketPosition.Long)
+                            ? avgPrice + BAM_BEOfs * TickSize
+                            : avgPrice - BAM_BEOfs * TickSize;
+                        SetStopLoss((pos == MarketPosition.Long) ? "BAM_L" : "BAM_S", CalculationMode.Price, bePrice, false);
+                    }
+                    if (BAM_TS && pt >= BAM_TSTick)
+                    {
+                        double tp = (pos == MarketPosition.Long)
+                            ? Close[0] - BAM_TSDist * TickSize
+                            : Close[0] + BAM_TSDist * TickSize;
+                        SetStopLoss((pos == MarketPosition.Long) ? "BAM_L" : "BAM_S", CalculationMode.Price, tp, false);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Print("[BAM OnBarUpdate ERROR] " + ex.Message);
+            }
+        }
+
+        protected override void OnExecutionUpdate(Execution execution, string executionId,
+            double price, int quantity, MarketPosition marketPosition,
+            string orderId, DateTime time)
+        {
+            try
+            {
+                if (execution == null) return;
+
+                if (SystemPerformance != null && SystemPerformance.AllTrades != null
+                    && SystemPerformance.AllTrades.Count > 0)
+                {
+                    var last = SystemPerformance.AllTrades[SystemPerformance.AllTrades.Count - 1];
+                    if (last != null)
+                    {
+                        bam_pnl += last.ProfitCurrency;
+                        if (BAM_LimitePnL && (bam_pnl <= -Math.Abs(BAM_PerdMax) || bam_pnl >= BAM_GanObj))
+                            bam_lock = true;
+                    }
+                }
+
+                // DIBUJAR ENTRADAS Y SALIDAS VISUALES CON ETIQUETAS DE ANALISIS
+                if (Bars != null && CurrentBar >= 1)
+                {
+                    bam_tag++;
+                    if (marketPosition == MarketPosition.Long)
+                    {
+                        Draw.ArrowUp(this, "B" + bam_tag, false, 0, Low[0] - TickSize * 4, Brushes.Lime);
+                        Draw.Text(this, "BT" + bam_tag, "BUY " + quantity + " @ " + price.ToString("N2"), 0, Low[0] - TickSize * 12, Brushes.Lime);
+                    }
+                    else if (marketPosition == MarketPosition.Short)
+                    {
+                        Draw.ArrowDown(this, "B" + bam_tag, false, 0, High[0] + TickSize * 4, Brushes.Red);
+                        Draw.Text(this, "BT" + bam_tag, "SELL " + quantity + " @ " + price.ToString("N2"), 0, High[0] + TickSize * 12, Brushes.Red);
+                    }
+                    else
+                    {
+                        Draw.Diamond(this, "B" + bam_tag, false, 0, High[0] + TickSize * 4, Brushes.Gold);
+                        Draw.Text(this, "BT" + bam_tag, "EXIT @ " + price.ToString("N2"), 0, High[0] + TickSize * 12, Brushes.Gold);
+                    }
+                }
+
+                if (State == State.Realtime) UpdateWpfHudMetrics();
+            }
+            catch (Exception ex)
+            {
+                Print("[BAM Exec ERROR] " + ex.Message);
+            }
+        }
+
+        private void BAM_Pintar(MarketPosition pos, double avgPrice)
+        {
+            try
+            {
+                if (Bars == null || CurrentBar < 1) return;
+
+                if (pos != MarketPosition.Flat && avgPrice > 0)
+                {
+                    double sl = pos == MarketPosition.Long
+                        ? avgPrice - BAM_SLL * TickSize
+                        : avgPrice + BAM_SLS * TickSize;
+                    double tp = pos == MarketPosition.Long
+                        ? avgPrice + BAM_TPL * TickSize
+                        : avgPrice - BAM_TPS * TickSize;
+
+                    Draw.HorizontalLine(this, "BAM_SL", sl, Brushes.Red);
+                    Draw.HorizontalLine(this, "BAM_TP", tp, Brushes.LimeGreen);
+                    Draw.Text(this, "BAM_SL_TXT", "SL: $" + sl.ToString("N2"), 0, sl, Brushes.Red);
+                    Draw.Text(this, "BAM_TP_TXT", "TP: $" + tp.ToString("N2"), 0, tp, Brushes.LimeGreen);
+                }
+                else
+                {
+                    RemoveDrawObject("BAM_SL");
+                    RemoveDrawObject("BAM_TP");
+                    RemoveDrawObject("BAM_SL_TXT");
+                    RemoveDrawObject("BAM_TP_TXT");
+                }
+            }
+            catch (Exception ex)
+            {
+                Print("[BAM Pintar ERROR] " + ex.Message);
+            }
+        }
+
+        #region WPF HUD Control Panel - Glassmorphism Semi-Transparente
+        private static SolidColorBrush HexColor(string hex, byte alpha = 255)
+        {
+            try
+            {
+                hex = hex.TrimStart('#');
+                if (hex.Length == 6)
+                {
+                    byte r = Convert.ToByte(hex.Substring(0, 2), 16);
+                    byte g = Convert.ToByte(hex.Substring(2, 2), 16);
+                    byte b = Convert.ToByte(hex.Substring(4, 2), 16);
+                    return new SolidColorBrush(Color.FromArgb(alpha, r, g, b));
+                }
+            }
+            catch {}
+            return new SolidColorBrush(Color.FromArgb(alpha, 30, 41, 59));
+        }
+
+        private Border CreateSectionBox(string titleText, string headerHex, UIElement contentGrid)
+        {
+            Border b = new Border
+            {
+                BorderBrush = HexColor(headerHex, 220),
+                BorderThickness = new Thickness(1.5),
+                CornerRadius = new CornerRadius(6),
+                Background = HexColor("#040C18", 170),
+                Margin = new Thickness(0, 0, 0, 8),
+                Padding = new Thickness(8)
+            };
+
+            StackPanel sp = new StackPanel();
+            TextBlock header = new TextBlock
+            {
+                Text = titleText,
+                Foreground = HexColor(headerHex),
+                FontWeight = FontWeights.Bold,
+                FontSize = 11,
+                Margin = new Thickness(0, 0, 0, 6)
+            };
+            sp.Children.Add(header);
+            sp.Children.Add(contentGrid);
+            b.Child = sp;
+            return b;
+        }
+
+        private UIElement CreateKvRow(string labelText, string valText, string valColorHex)
+        {
+            Grid g = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            TextBlock lbl = new TextBlock
+            {
+                Text = labelText,
+                Foreground = Brushes.White,
+                FontSize = 11,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(lbl, 0);
+
+            Border valBox = new Border
+            {
+                Background = HexColor("#020710", 210),
+                CornerRadius = new CornerRadius(4),
+                Padding = new Thickness(6, 3, 6, 3),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                MinWidth = 90
+            };
+            TextBlock val = new TextBlock
+            {
+                Text = valText,
+                Foreground = HexColor(valColorHex),
+                FontWeight = FontWeights.Bold,
+                FontSize = 11,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            valBox.Child = val;
+            Grid.SetColumn(valBox, 1);
+
+            g.Children.Add(lbl);
+            g.Children.Add(valBox);
+            return g;
+        }
+
+        private void CreateWpfHudPanel()
+        {
+            try
+            {
+                if (ChartControl == null) return;
+                if (hudBorder != null)
+                {
+                    EnsureHudAttachedToChart();
+                    return;
+                }
+
+                hudBorder = new Border
+                {
+                    Background = HexColor("#06101E", 200),
+                    BorderBrush = HexColor("#0284C7", 230),
+                    BorderThickness = new Thickness(2),
+                    CornerRadius = new CornerRadius(10),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(12, 12, 0, 0),
+                    Padding = new Thickness(12),
+                    Width = 480,
+                    IsHitTestVisible = true
+                };
+
+                StackPanel mainStack = new StackPanel();
+
+                // 1. Header Bar: Title + Drag Handles + Status Pill + Minimize Toggle Button
+                Grid headerGrid = new Grid { Margin = new Thickness(0, 0, 0, 10), Background = Brushes.Transparent, Cursor = Cursors.SizeAll };
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                headerGrid.MouseLeftButtonDown += (s, e) => {
+                    isDragging = true;
+                    dragStart = e.GetPosition(hudBorder);
+                    headerGrid.CaptureMouse();
+                };
+                headerGrid.MouseMove += (s, e) => {
+                    if (isDragging && hudBorder != null) {
+                        Point currentPos = e.GetPosition(hudBorder.Parent as UIElement);
+                        hudBorder.Margin = new Thickness(
+                            Math.Max(0, currentPos.X - dragStart.X),
+                            Math.Max(0, currentPos.Y - dragStart.Y),
+                            0, 0
+                        );
+                    }
+                };
+                headerGrid.MouseLeftButtonUp += (s, e) => {
+                    isDragging = false;
+                    headerGrid.ReleaseMouseCapture();
+                };
+
+                TextBlock title = new TextBlock
+                {
+                    Text = "⚡ FUTURES MARKET OPENING BOT ✥",
+                    Foreground = Brushes.White,
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 13,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(title, 0);
+
+                Border statusPill = new Border
+                {
+                    Background = HexColor("#052E16", 210),
+                    BorderBrush = HexColor("#10B981"),
+                    BorderThickness = new Thickness(1.5),
+                    CornerRadius = new CornerRadius(12),
+                    Padding = new Thickness(8, 3, 8, 3),
+                    Margin = new Thickness(0, 0, 6, 0)
+                };
+                statusText = new TextBlock
+                {
+                    Text = "STATE: ACTIVE / LIVE",
+                    Foreground = HexColor("#10B981"),
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 10.5
+                };
+                statusPill.Child = statusText;
+                Grid.SetColumn(statusPill, 1);
+
+                btnMinimize = new Button
+                {
+                    Content = " ➖ ",
+                    Foreground = Brushes.White,
+                    Background = HexColor("#1E293B", 220),
+                    BorderThickness = new Thickness(0),
+                    Width = 26,
+                    Height = 24,
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 11,
+                    Cursor = Cursors.Hand,
+                    ToolTip = "Minimizar / Expandir Interfaz"
+                };
+                btnMinimize.Click += (s, e) => {
+                    isCollapsed = !isCollapsed;
+                    if (topRow != null) topRow.Visibility = isCollapsed ? Visibility.Collapsed : Visibility.Visible;
+                    if (midRow != null) midRow.Visibility = isCollapsed ? Visibility.Collapsed : Visibility.Visible;
+                    if (progressBox != null) progressBox.Visibility = isCollapsed ? Visibility.Collapsed : Visibility.Visible;
+                    if (pnlBar != null) pnlBar.Visibility = isCollapsed ? Visibility.Collapsed : Visibility.Visible;
+                    if (btnGrid != null) btnGrid.Visibility = isCollapsed ? Visibility.Collapsed : Visibility.Visible;
+                    btnMinimize.Content = isCollapsed ? " ➕ " : " ➖ ";
+                    hudBorder.Width = isCollapsed ? 380 : 480;
+                };
+                Grid.SetColumn(btnMinimize, 2);
+
+                headerGrid.Children.Add(title);
+                headerGrid.Children.Add(statusPill);
+                headerGrid.Children.Add(btnMinimize);
+                mainStack.Children.Add(headerGrid);
+
+                // 2. Top Row (Section 1 + Section 2)
+                topRow = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+                topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12, GridUnitType.Pixel) });
+                topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                // Section 1: Scheduled Opening Entry
+                StackPanel sec1Stack = new StackPanel();
+                sec1Stack.Children.Add(CreateKvRow("NY Entry Time:", "09:30:00", "#FFFFFF"));
+                sec1Stack.Children.Add(CreateKvRow("Entry Window:", "2s", "#FFFFFF"));
+                sec1Stack.Children.Add(CreateKvRow("Contracts:", BAM_Contratos.ToString(), "#FFFFFF"));
+                sec1Stack.Children.Add(CreateKvRow("Risk:", "$" + BAM_PerdMax.ToString("N0"), "#FFFFFF"));
+                sec1Stack.Children.Add(CreateKvRow("Target:", "$" + BAM_GanObj.ToString("N0"), "#FFFFFF"));
+                Border sec1 = CreateSectionBox("1. SCHEDULED OPENING ENTRY", "#38BDF8", sec1Stack);
+                Grid.SetColumn(sec1, 0);
+
+                // Section 2: Risk Management & PnL
+                StackPanel sec2Stack = new StackPanel();
+                sec2Stack.Children.Add(CreateKvRow("Stop Loss:", BAM_SLL.ToString() + " ticks", "#FFFFFF"));
+                sec2Stack.Children.Add(CreateKvRow("Take Profit:", BAM_TPL.ToString() + " ticks", "#FFFFFF"));
+                sec2Stack.Children.Add(CreateKvRow("Max Daily Loss:", "-$" + BAM_PerdMax.ToString("N0"), "#EF4444"));
+                sec2Stack.Children.Add(CreateKvRow("Daily Target:", "+$" + BAM_GanObj.ToString("N0"), "#10B981"));
+                sec2Stack.Children.Add(CreateKvRow("Force Flat Time:", "15:50:00", "#FFFFFF"));
+                Border sec2 = CreateSectionBox("2. RISK MANAGEMENT & PnL", "#FB923C", sec2Stack);
+                Grid.SetColumn(sec2, 2);
+
+                topRow.Children.Add(sec1);
+                topRow.Children.Add(sec2);
+                mainStack.Children.Add(topRow);
+
+                // 3. Middle Row (Section 3 + Section 4)
+                midRow = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+                midRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                midRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12, GridUnitType.Pixel) });
+                midRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                // Section 3: Profit Lock (4 Stages) - ESCALERA DE BLOQUEO DE GANANCIAS
+                StackPanel sec3Stack = new StackPanel();
+                sec3Stack.Children.Add(CreateKvRow("Stage 1:", "$600 → $320", "#FFFFFF"));
+                sec3Stack.Children.Add(CreateKvRow("Stage 2:", "$1,000 → $820", "#FFFFFF"));
+                sec3Stack.Children.Add(CreateKvRow("Stage 3:", "$1,150 → $1,050", "#FFFFFF"));
+                sec3Stack.Children.Add(CreateKvRow("Stage 4:", "$1,800 → $1,600", "#FFFFFF"));
+                Border sec3 = CreateSectionBox("3. PROFIT LOCK (4 STAGES)", "#34D399", sec3Stack);
+                Grid.SetColumn(sec3, 0);
+
+                // Section 4: Pre-Opening Analysis
+                StackPanel sec4Stack = new StackPanel();
+                sec4Stack.Children.Add(CreateKvRow("Range Threshold:", BAM_CuerpoMax.ToString() + " pts", "#FFFFFF"));
+                sec4Stack.Children.Add(CreateKvRow("Shield Status:", "SAFE / PROTECTED", "#10B981"));
+                Border sec4 = CreateSectionBox("4. PRE-OPENING ANALYSIS (08:00 - 09:29 AM)", "#A78BFA", sec4Stack);
+                Grid.SetColumn(sec4, 2);
+
+                midRow.Children.Add(sec3);
+                midRow.Children.Add(sec4);
+                mainStack.Children.Add(midRow);
+
+                // 4. NUEVA SECCION: BARRA DE PROGRESO DE OBJETIVO DIARIO (DAILY TARGET PROGRESS BAR)
+                StackPanel progressStack = new StackPanel();
+                Grid progressHeaderGrid = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+                progressHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                progressHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                TextBlock progressTitle = new TextBlock
+                {
+                    Text = "🎯 PROGRESO DE OBJETIVO DIARIO (TARGET)",
+                    Foreground = HexColor("#F59E0B"),
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 10.5
+                };
+                Grid.SetColumn(progressTitle, 0);
+
+                progressPctText = new TextBlock
+                {
+                    Text = "$0.00 / +$" + BAM_GanObj.ToString("N0") + " (0.0%)",
+                    Foreground = Brushes.White,
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 10.5
+                };
+                Grid.SetColumn(progressPctText, 1);
+
+                progressHeaderGrid.Children.Add(progressTitle);
+                progressHeaderGrid.Children.Add(progressPctText);
+                progressStack.Children.Add(progressHeaderGrid);
+
+                Border progressBarTrack = new Border
+                {
+                    Height = 14,
+                    Background = HexColor("#020710", 220),
+                    BorderBrush = HexColor("#1E293B"),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(7),
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    Margin = new Thickness(0, 2, 0, 2)
+                };
+
+                progressBarFill = new Border
+                {
+                    Height = 12,
+                    Width = 0,
+                    Background = HexColor("#10B981"),
+                    CornerRadius = new CornerRadius(6),
+                    HorizontalAlignment = HorizontalAlignment.Left
+                };
+
+                progressBarTrack.Child = progressBarFill;
+                progressStack.Children.Add(progressBarTrack);
+                progressBox = CreateSectionBox("PROGRESO DE GANANCIAS DIARIAS", "#F59E0B", progressStack);
+                mainStack.Children.Add(progressBox);
+
+                // 5. Live PnL Bar
+                pnlBar = new Border
+                {
+                    Background = HexColor("#030D1A", 200),
+                    BorderBrush = HexColor("#1E293B", 220),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(10, 8, 10, 8),
+                    Margin = new Thickness(0, 0, 0, 10)
+                };
+                Grid pnlGrid = new Grid();
+                pnlGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                pnlGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                pnlGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                realizedPnlText = new TextBlock
+                {
+                    Text = "Realized PnL: +$0.00",
+                    Foreground = HexColor("#10B981"),
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 11,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+                Grid.SetColumn(realizedPnlText, 0);
+
+                openPnlText = new TextBlock
+                {
+                    Text = "Open PnL: +$0.00",
+                    Foreground = HexColor("#10B981"),
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 11,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+                Grid.SetColumn(openPnlText, 1);
+
+                tradesTodayText = new TextBlock
+                {
+                    Text = "Trades Today: 0",
+                    Foreground = Brushes.White,
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 11,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+                Grid.SetColumn(tradesTodayText, 2);
+
+                pnlGrid.Children.Add(realizedPnlText);
+                pnlGrid.Children.Add(openPnlText);
+                pnlGrid.Children.Add(tradesTodayText);
+                pnlBar.Child = pnlGrid;
+                mainStack.Children.Add(pnlBar);
+
+                // 6. Action Buttons (3 Buttons Row)
+                btnGrid = new Grid();
+                btnGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                btnGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8, GridUnitType.Pixel) });
+                btnGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                btnGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8, GridUnitType.Pixel) });
+                btnGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                btnFlatten = new Button
+                {
+                    Content = "FLATTEN & CANCEL ALL",
+                    Background = HexColor("#EF4444", 220),
+                    Foreground = Brushes.White,
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 11,
+                    Height = 36,
+                    BorderThickness = new Thickness(0),
+                    Cursor = Cursors.Hand
+                };
+                btnFlatten.Click += (s, e) => {
+                    try {
+                        if (Position != null && Position.MarketPosition != MarketPosition.Flat) {
+                            if (Position.MarketPosition == MarketPosition.Long) ExitLong("BAM_L");
+                            else if (Position.MarketPosition == MarketPosition.Short) ExitShort("BAM_S");
+                        }
+                    } catch {}
+                };
+                Grid.SetColumn(btnFlatten, 0);
+
+                btnPause = new Button
+                {
+                    Content = "PAUSE BOT",
+                    Background = HexColor("#F97316", 220),
+                    Foreground = Brushes.White,
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 11,
+                    Height = 36,
+                    BorderThickness = new Thickness(0),
+                    Cursor = Cursors.Hand
+                };
+                btnPause.Click += (s, e) => {
+                    isPaused = !isPaused;
+                    if (statusText != null) {
+                        statusText.Text = isPaused ? "STATE: PAUSED" : "STATE: ACTIVE / LIVE";
+                        statusText.Foreground = isPaused ? HexColor("#F97316") : HexColor("#10B981");
+                    }
+                };
+                Grid.SetColumn(btnPause, 2);
+
+                btnReset = new Button
+                {
+                    Content = "RESET PnL",
+                    Background = HexColor("#10B981", 220),
+                    Foreground = Brushes.White,
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 11,
+                    Height = 36,
+                    BorderThickness = new Thickness(0),
+                    Cursor = Cursors.Hand
+                };
+                btnReset.Click += (s, e) => {
+                    bam_pnl = 0; bam_ops = 0; bam_lock = false; bam_currentStage = 0; bam_highWater = 0;
+                    UpdateWpfHudMetrics();
+                };
+                Grid.SetColumn(btnReset, 4);
+
+                btnGrid.Children.Add(btnFlatten);
+                btnGrid.Children.Add(btnPause);
+                btnGrid.Children.Add(btnReset);
+                mainStack.Children.Add(btnGrid);
+
+                hudBorder.Child = mainStack;
+                EnsureHudAttachedToChart();
+            }
+            catch (Exception ex)
+            {
+                Print("[BAM CreateWpfHudPanel ERROR] " + ex.Message);
+            }
+        }
+
+        private void EnsureHudAttachedToChart()
+        {
+            if (ChartControl == null || hudBorder == null) return;
+
+            try
+            {
+                DependencyObject current = ChartControl;
+                while (current != null)
+                {
+                    if (current is Grid)
+                    {
+                        Grid g = (Grid)current;
+                        if (!g.Children.Contains(hudBorder))
+                        {
+                            g.Children.Add(hudBorder);
+                            Print("[BAM HUD] Interfaz anclada al grafico.");
+                        }
+                        return;
+                    }
+                    else if (current is Panel)
+                    {
+                        Panel p = (Panel)current;
+                        if (!p.Children.Contains(hudBorder))
+                        {
+                            p.Children.Add(hudBorder);
+                            Print("[BAM HUD] Interfaz anclada al Panel.");
+                        }
+                        return;
+                    }
+
+                    DependencyObject parent = null;
+                    if (current is FrameworkElement) parent = ((FrameworkElement)current).Parent;
+                    if (parent == null) parent = VisualTreeHelper.GetParent(current);
+                    current = parent;
+                }
+            }
+            catch (Exception ex)
+            {
+                Print("[BAM HUD ERROR] " + ex.Message);
+            }
+        }
+
+        private void DisposeWpfHudPanel()
+        {
+            if (hudBorder == null) return;
+
+            try
+            {
+                if (ChartControl != null)
+                {
+                    DependencyObject current = ChartControl;
+                    while (current != null)
+                    {
+                        if (current is Grid)
+                        {
+                            Grid g = (Grid)current;
+                            if (g.Children.Contains(hudBorder))
+                            {
+                                g.Children.Remove(hudBorder);
+                            }
+                        }
+                        else if (current is Panel)
+                        {
+                            Panel p = (Panel)current;
+                            if (p.Children.Contains(hudBorder))
+                            {
+                                p.Children.Remove(hudBorder);
+                            }
+                        }
+                        DependencyObject parent = null;
+                        if (current is FrameworkElement) parent = ((FrameworkElement)current).Parent;
+                        if (parent == null) parent = VisualTreeHelper.GetParent(current);
+                        current = parent;
+                    }
+                }
+            }
+            catch {}
+
+            hudBorder = null;
+        }
+
+        private void UpdateWpfHudMetrics()
+        {
+            if (ChartControl != null && ChartControl.Dispatcher != null)
+            {
+                ChartControl.Dispatcher.BeginInvoke(new Action(() => {
+                    if (realizedPnlText != null)
+                        realizedPnlText.Text = "Realized PnL: " + (bam_pnl >= 0 ? "+" : "") + "$" + bam_pnl.ToString("N2");
+                    if (tradesTodayText != null)
+                        tradesTodayText.Text = "Trades Today: " + bam_ops;
+                    if (openPnlText != null && Position != null)
+                    {
+                        double openPnl = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency, Close[0]);
+                        openPnlText.Text = "Open PnL: " + (openPnl >= 0 ? "+" : "") + "$" + openPnl.ToString("N2");
+                    }
+
+                    // Actualizacion en tiempo real de la Escalera Profit Lock y Barra de Progreso
+                    if (progressPctText != null && progressBarFill != null)
+                    {
+                        double targetVal = Math.Max(1, BAM_GanObj);
+                        double pct = Math.Max(0, Math.Min(100, (bam_pnl / targetVal) * 100));
+
+                        if (bam_currentStage == 4)
+                        {
+                            progressPctText.Text = "🔒 LOCK STAGE 4: GLD +$1,600 (Pico: +$" + bam_highWater.ToString("N0") + ")";
+                            progressPctText.Foreground = HexColor("#10B981");
+                            progressBarFill.Width = 430;
+                            progressBarFill.Background = HexColor("#10B981");
+                        }
+                        else if (bam_currentStage == 3)
+                        {
+                            progressPctText.Text = "🔒 LOCK STAGE 3: GLD +$1,050 (Pico: +$" + bam_highWater.ToString("N0") + ")";
+                            progressPctText.Foreground = HexColor("#10B981");
+                            progressBarFill.Width = Math.Max(250, (pct / 100) * 430);
+                            progressBarFill.Background = HexColor("#10B981");
+                        }
+                        else if (bam_currentStage == 2)
+                        {
+                            progressPctText.Text = "🔒 LOCK STAGE 2: GLD +$820 (Pico: +$" + bam_highWater.ToString("N0") + ")";
+                            progressPctText.Foreground = HexColor("#38BDF8");
+                            progressBarFill.Width = Math.Max(200, (pct / 100) * 430);
+                            progressBarFill.Background = HexColor("#38BDF8");
+                        }
+                        else if (bam_currentStage == 1)
+                        {
+                            progressPctText.Text = "🔒 LOCK STAGE 1: GLD +$320 (Pico: +$" + bam_highWater.ToString("N0") + ")";
+                            progressPctText.Foreground = HexColor("#F59E0B");
+                            progressBarFill.Width = Math.Max(140, (pct / 100) * 430);
+                            progressBarFill.Background = HexColor("#F59E0B");
+                        }
+                        else if (bam_pnl >= BAM_GanObj)
+                        {
+                            progressPctText.Text = "🎯 TARGET ALCANZADO! (+$" + bam_pnl.ToString("N2") + ")";
+                            progressPctText.Foreground = HexColor("#10B981");
+                            progressBarFill.Width = 430;
+                            progressBarFill.Background = HexColor("#10B981");
+                        }
+                        else if (bam_pnl < 0)
+                        {
+                            double lossPct = Math.Min(100, (Math.Abs(bam_pnl) / Math.Max(1, BAM_PerdMax)) * 100);
+                            progressPctText.Text = "⚠️ PnL Negativo: -$" + Math.Abs(bam_pnl).ToString("N2") + " (" + lossPct.ToString("F1") + "% Max Loss)";
+                            progressPctText.Foreground = HexColor("#EF4444");
+                            progressBarFill.Width = Math.Max(10, (lossPct / 100) * 430);
+                            progressBarFill.Background = HexColor("#EF4444");
+                        }
+                        else
+                        {
+                            progressPctText.Text = "+$" + bam_pnl.ToString("N2") + " / +$" + targetVal.ToString("N0") + " (" + pct.ToString("F1") + "%)";
+                            progressPctText.Foreground = Brushes.White;
+                            progressBarFill.Width = Math.Max(0, (pct / 100) * 430);
+                            progressBarFill.Background = HexColor("#F59E0B");
+                        }
+                    }
+                }), DispatcherPriority.Background);
+            }
+        }
+        #endregion
+    }
 }

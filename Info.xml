@@ -1,7 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<NinjaTrader>
-  <Export>
-    <Version>8.1.7.2</Version>
-    <Agile>7.0.0.30</Agile>
-  </Export>
-</NinjaTrader>
+<NinjaScript>
+  <Name>RobotTradingFutures</Name>
+  <Version>8.1.7.2</Version>
+  <Type>Strategy</Type>
+  <NinjaScriptType>Strategy</NinjaScriptType>
+  <NinjaTraderVersion>8.0</NinjaTraderVersion>
+  <Description>Robot Trading Futuros Enterprise</Description>
+  <Files>
+    <File>bin/Custom/Strategies/MarketOpeningBotEnterprise.cs</File>
+  </Files>
+</NinjaScript>
