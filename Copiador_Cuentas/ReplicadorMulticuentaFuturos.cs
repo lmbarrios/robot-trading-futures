@@ -101,6 +101,16 @@ namespace NinjaTrader.NinjaScript.Strategies
         public bool RMF_UsarProfitLock { get; set; }
         #endregion
 
+        #region 2 - Escudo y Auto-Ajuste de Colchon
+        [NinjaScriptProperty]
+        [Display(Name="Activar Auto-Ajuste por Colchon Restante", Description="Ajusta automaticamente los lotes de cada esclava segun su colchon disponible.", Order=1, GroupName="2. Escudo y Auto-Ajuste")]
+        public bool RMF_UsarAutoEscaladoColchon { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name="Auto-Proteger Esclavas en Riesgo", Description="Liquida individualmente una esclava si toca su limite de perdida diario de recuperacion.", Order=2, GroupName="2. Escudo y Auto-Ajuste")]
+        public bool RMF_AutoProtegerEsclavas { get; set; }
+        #endregion
+
         protected override void OnStateChange()
         {
             try
@@ -122,6 +132,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     RMF_BloquearInversion = true;
                     RMF_ObjetivoDiario  = 600;
                     RMF_UsarProfitLock  = true;
+                    RMF_UsarAutoEscaladoColchon = true;
+                    RMF_AutoProtegerEsclavas = true;
                 }
                 else if (State == State.Configure)
                 {
@@ -346,6 +358,58 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
         }
 
+        private double RMF_ObtenerColchonRestanteEsclava(Account slaveAcc, out string modoStr)
+        {
+            modoStr = "NORMAL";
+            if (slaveAcc == null) return 2000;
+
+            double slaveCash = 50000;
+            string accName = (slaveAcc.Name ?? "").ToUpper();
+
+            try
+            {
+                slaveCash = slaveAcc.Get(AccountItem.CashValue, Currency.UsDollar);
+            }
+            catch {}
+
+            double initialBalance = 50000;
+            double maxDrawdownLimit = 2000;
+
+            if (slaveCash >= 140000 || accName.Contains("150K") || accName.Contains("150000"))
+            {
+                initialBalance = 150000;
+                maxDrawdownLimit = 4500;
+            }
+            else if (slaveCash >= 90000 || accName.Contains("100K") || accName.Contains("100000"))
+            {
+                initialBalance = 100000;
+                maxDrawdownLimit = 3000;
+            }
+            else
+            {
+                initialBalance = 50000;
+                maxDrawdownLimit = 2000;
+            }
+
+            double drawdownThresholdPrice = initialBalance - maxDrawdownLimit;
+            double colchonRestante = Math.Max(0, slaveCash - drawdownThresholdPrice);
+
+            if (colchonRestante < 600)
+            {
+                modoStr = "CRITICO";
+            }
+            else if (colchonRestante < 1500)
+            {
+                modoStr = "RECUPERACION";
+            }
+            else
+            {
+                modoStr = "NORMAL";
+            }
+
+            return colchonRestante;
+        }
+
         private void RMF_ReplicarEjecucion(Execution masterExec, int qty, MarketPosition pos)
         {
             if (rmf_esclavas == null || rmf_esclavas.Count == 0) return;
@@ -355,6 +419,25 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (slaveAcc == null) continue;
                 try
                 {
+                    int slaveQty = qty;
+
+                    if (RMF_UsarAutoEscaladoColchon)
+                    {
+                        string modoAcc;
+                        double colchon = RMF_ObtenerColchonRestanteEsclava(slaveAcc, out modoAcc);
+
+                        if (modoAcc == "CRITICO")
+                        {
+                            slaveQty = 1;
+                            Print("[RMF AUTO-PROTECCION] " + slaveAcc.Name + " en MODO CRITICO (Colchon: $" + colchon.ToString("N0") + "). Lotes ajustados a 1.");
+                        }
+                        else if (modoAcc == "RECUPERACION")
+                        {
+                            slaveQty = Math.Min(slaveQty, 1);
+                            Print("[RMF AUTO-PROTECCION] " + slaveAcc.Name + " en MODO RECUPERACION (Colchon: $" + colchon.ToString("N0") + "). Lotes ajustados a 1.");
+                        }
+                    }
+
                     OrderAction action = OrderAction.Buy;
                     if (pos == MarketPosition.Long)  action = OrderAction.Buy;
                     if (pos == MarketPosition.Short) action = OrderAction.SellShort;
@@ -366,12 +449,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                         OrderType.Market,
                         OrderEntry.Manual,
                         TimeInForce.Day,
-                        qty, 0, 0, "",
+                        slaveQty, 0, 0, "",
                         "RMF_" + slaveAcc.Name,
                         DateTime.MaxValue, null
                     );
                     slaveAcc.Submit(new[] { o });
-                    string logLine = DateTime.Now.ToString("HH:mm:ss") + " — Replicated " + qty + " " + masterExec.Instrument.MasterInstrument.Name + " orders to " + slaveAcc.Name;
+                    string logLine = DateTime.Now.ToString("HH:mm:ss") + " — Replicated " + slaveQty + " " + masterExec.Instrument.MasterInstrument.Name + " orders to " + slaveAcc.Name;
                     AppendActivityLog(logLine);
 
                     // Actualizar PnL acumulado de replica
@@ -510,21 +593,40 @@ namespace NinjaTrader.NinjaScript.Strategies
             return b;
         }
 
-        private UIElement CreateSlaveRow(string accName, string ratioStr, string maxLossStr)
+        private UIElement CreateSlaveRow(Account slaveAcc, string defaultName = "PA_ESCLAVA")
         {
+            string accName = slaveAcc != null ? slaveAcc.Name : defaultName;
+            string modoAcc = "NORMAL";
+            double colchon = slaveAcc != null ? RMF_ObtenerColchonRestanteEsclava(slaveAcc, out modoAcc) : 2000;
+
             StackPanel row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2) };
             CheckBox cb = new CheckBox { IsChecked = true, Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+
+            string modoText = "🟢 NORMAL (100%)";
+            string modoColor = "#10B981";
+
+            if (modoAcc == "RECUPERACION")
+            {
+                modoText = "🟡 RECUPERACIÓN (1 Micro)";
+                modoColor = "#F59E0B";
+            }
+            else if (modoAcc == "CRITICO")
+            {
+                modoText = "🔴 CRÍTICO (Protección 1 Micro)";
+                modoColor = "#EF4444";
+            }
+
             TextBlock txt = new TextBlock
             {
-                Text = accName + " | Ratio: " + ratioStr + " | Max Loss: " + maxLossStr + " | Target: +$600 | Status: ",
+                Text = accName + " | Colchón: $" + colchon.ToString("N0") + " | Estado: ",
                 Foreground = Brushes.White,
                 FontSize = 11,
                 VerticalAlignment = VerticalAlignment.Center
             };
             TextBlock status = new TextBlock
             {
-                Text = "Connected (green)",
-                Foreground = HexColor("#10B981"),
+                Text = modoText,
+                Foreground = HexColor(modoColor),
                 FontWeight = FontWeights.Bold,
                 FontSize = 11,
                 VerticalAlignment = VerticalAlignment.Center
@@ -764,12 +866,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                 cbMasterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
                 CheckBox cbEntries = new CheckBox { Content = "Copy Entries", IsChecked = RMF_CopiarEntradas, Foreground = Brushes.White, FontSize = 11, Margin = new Thickness(0, 2, 0, 2) };
-                CheckBox cbReverse = new CheckBox { Content = "Reverse Trade (Inverse)", IsChecked = false, Foreground = Brushes.White, FontSize = 11, Margin = new Thickness(0, 2, 0, 2) };
                 CheckBox cbExits   = new CheckBox { Content = "Copy Exits", IsChecked = RMF_CopiarSalidas, Foreground = Brushes.White, FontSize = 11, Margin = new Thickness(0, 2, 0, 2) };
                 TextBlock lblSlip  = new TextBlock { Text = "Max Slippage: 2 ticks", Foreground = Brushes.White, FontSize = 11, Margin = new Thickness(0, 2, 0, 2) };
 
                 StackPanel leftMaster = new StackPanel(); leftMaster.Children.Add(cbEntries); leftMaster.Children.Add(cbExits);
-                StackPanel rightMaster = new StackPanel(); rightMaster.Children.Add(cbReverse); rightMaster.Children.Add(lblSlip);
+                StackPanel rightMaster = new StackPanel(); rightMaster.Children.Add(lblSlip);
                 Grid.SetColumn(leftMaster, 0); Grid.SetColumn(rightMaster, 1);
                 cbMasterGrid.Children.Add(leftMaster); cbMasterGrid.Children.Add(rightMaster);
                 masterStack.Children.Add(cbMasterGrid);
@@ -836,14 +937,14 @@ namespace NinjaTrader.NinjaScript.Strategies
                 {
                     foreach (Account acc in rmf_esclavas)
                     {
-                        slaveListStack.Children.Add(CreateSlaveRow(acc.Name, RMF_Factor.ToString("F1") + "x", "-$500"));
+                        slaveListStack.Children.Add(CreateSlaveRow(acc));
                     }
                 }
                 else
                 {
-                    slaveListStack.Children.Add(CreateSlaveRow("PA_APEX_001", RMF_Factor.ToString("F1") + "x", "-$500"));
-                    slaveListStack.Children.Add(CreateSlaveRow("PA_APEX_002", RMF_Factor.ToString("F1") + "x", "-$500"));
-                    slaveListStack.Children.Add(CreateSlaveRow("TOPSTEP_FUNDED_01", RMF_Factor.ToString("F1") + "x", "-$500"));
+                    slaveListStack.Children.Add(CreateSlaveRow(null, "PA_APEX_001"));
+                    slaveListStack.Children.Add(CreateSlaveRow(null, "PA_APEX_002"));
+                    slaveListStack.Children.Add(CreateSlaveRow(null, "TOPSTEP_FUNDED_01"));
                 }
 
                 secSlaves = CreateSectionBox("SLAVE ACCOUNT MATRIX (SLAVE ACCOUNTS)", slaveListStack);

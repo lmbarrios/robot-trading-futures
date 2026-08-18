@@ -23,7 +23,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 {
     public class BotAperturaMercado : Strategy
     {
-        public enum BAM_PerfilCuenta { Cuenta_50K, Cuenta_100K, Cuenta_150K, Personalizado }
+        public enum BAM_PerfilCuenta { AutoDeteccion, Cuenta_50K, Cuenta_100K, Cuenta_150K, Personalizado }
 
         // Campos privados
         private EMA      bam_rapida;
@@ -69,7 +69,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         // Propiedades con prefijo BAM_ unico
         #region 1_General
         [NinjaScriptProperty]
-        [Display(Name = "Perfil de Cuenta", Order = 1, GroupName = "1_General")]
+        [Display(Name = "Perfil de Cuenta", Description = "AutoDeteccion automatica por saldo de cuenta o seleccion manual (50K, 100K, 150K).", Order = 1, GroupName = "1_General")]
         public BAM_PerfilCuenta BAM_Perfil { get; set; }
 
         [NinjaScriptProperty]
@@ -201,6 +201,34 @@ namespace NinjaTrader.NinjaScript.Strategies
         public int BAM_TSDist { get; set; }
         #endregion
 
+        #region 7_EscudoFondeo
+        [NinjaScriptProperty]
+        [Display(Name = "Activar Escudo Trailing Drawdown Fondeo", Description = "Protege el colchon de ganancias impidiendo devolver el pico flotante maximo.", Order = 1, GroupName = "7_EscudoFondeo")]
+        public bool BAM_UsarEscudoFondeo { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Pico Minimo Flotante ($)", Description = "Ganancia minima flotante requerida para activar el escudo de fondeo.", Order = 2, GroupName = "7_EscudoFondeo")]
+        public double BAM_PicoMinimoEscudo { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Retroceso Maximo Flotante ($)", Description = "Si las ganancias caen este valor desde el pico maximo, liquida y bloquea el dia.", Order = 3, GroupName = "7_EscudoFondeo")]
+        public double BAM_MaxRetrocesoFlotante { get; set; }
+        #endregion
+
+        #region 8_NewsGuard
+        [NinjaScriptProperty]
+        [Display(Name = "Activar Filtro de Noticias Red-Folder USD", Description = "Evita entradas durante comunicados de alto impacto (CPI, NFP, FOMC).", Order = 1, GroupName = "8_NewsGuard")]
+        public bool BAM_UsarNewsGuard { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Minutos Antes de Noticia", Order = 2, GroupName = "8_NewsGuard")]
+        public int BAM_MinAntesNoticia { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Minutos Despues de Noticia", Order = 3, GroupName = "8_NewsGuard")]
+        public int BAM_MinDespuesNoticia { get; set; }
+        #endregion
+
         protected override void OnStateChange()
         {
             try
@@ -215,7 +243,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     ExitOnSessionCloseSeconds     = 30;
                     BarsRequiredToTrade           = 20;
 
-                    BAM_Perfil    = BAM_PerfilCuenta.Cuenta_50K;
+                    BAM_Perfil    = BAM_PerfilCuenta.AutoDeteccion;
                     BAM_Contratos = 1;
                     BAM_Long      = true;
                     BAM_Short     = true;
@@ -235,6 +263,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                     BAM_GanObj    = 1000;
                     BAM_MaxTrades = 5;
                     BAM_UsarProfitLock = true; // Escalera de proteccion activada
+                    BAM_UsarEscudoFondeo = true;
+                    BAM_PicoMinimoEscudo = 300;
+                    BAM_MaxRetrocesoFlotante = 200;
+                    BAM_UsarNewsGuard = true;
+                    BAM_MinAntesNoticia = 5;
+                    BAM_MinDespuesNoticia = 5;
                     BAM_SLL       = 30;
                     BAM_SLS       = 30;
                     BAM_TPL       = 60;
@@ -248,12 +282,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
                 else if (State == State.Configure)
                 {
-                    if (BAM_Perfil == BAM_PerfilCuenta.Cuenta_50K)
-                    { BAM_Contratos = 2; BAM_PerdMax = 500; BAM_GanObj = 1000; BAM_SLL = 30; BAM_SLS = 30; BAM_TPL = 60; BAM_TPS = 60; }
-                    else if (BAM_Perfil == BAM_PerfilCuenta.Cuenta_100K)
-                    { BAM_Contratos = 5; BAM_PerdMax = 1000; BAM_GanObj = 2000; BAM_SLL = 40; BAM_SLS = 40; BAM_TPL = 80; BAM_TPS = 80; }
-                    else if (BAM_Perfil == BAM_PerfilCuenta.Cuenta_150K)
-                    { BAM_Contratos = 15; BAM_PerdMax = 1500; BAM_GanObj = 3000; BAM_SLL = 103; BAM_SLS = 103; BAM_TPL = 384; BAM_TPS = 384; }
+                    BAM_AplicarPresetCuenta();
 
                     if (BAM_SLL > 0) SetStopLoss("BAM_L", CalculationMode.Ticks, BAM_SLL, false);
                     if (BAM_TPL > 0) SetProfitTarget("BAM_L", CalculationMode.Ticks, BAM_TPL);
@@ -402,6 +431,31 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                 }
 
+                // EVALUACION DEL ESCUDO DE FONDEO EN POSICION ABIERTA (TRAILING DRAWDOWN GUARD)
+                if (pos != MarketPosition.Flat && BAM_UsarEscudoFondeo)
+                {
+                    if (openPnl > bam_highWater) bam_highWater = openPnl;
+
+                    if (bam_highWater >= BAM_PicoMinimoEscudo && (bam_highWater - openPnl) >= BAM_MaxRetrocesoFlotante)
+                    {
+                        if (pos == MarketPosition.Long) ExitLong("BAM_L");
+                        else if (pos == MarketPosition.Short) ExitShort("BAM_S");
+                        bam_lock = true;
+                        Print("[BAM ESCUDO DE FONDEO] Se aseguro ganancia evitando retroceso violento. Pico: $" + bam_highWater.ToString("N0") + ", Actual: $" + openPnl.ToString("N0"));
+                    }
+                }
+
+                // FILTRO DE NOTICIAS DE ALTO IMPACTO (NEWS GUARD)
+                if (BAM_UsarNewsGuard && EsHorarioNoticia())
+                {
+                    Draw.TextFixed(this, "BAM_NewsGuardMsg", "⚠️ NEWS GUARD ACTIVO: OPERATIVA PAUSADA POR NOTICIA RED-FOLDER", TextPosition.TopRight, Brushes.Orange, new Gui.Tools.SimpleFont("Arial", 11), Brushes.Black, Brushes.DarkOrange, 90);
+                    return;
+                }
+                else
+                {
+                    RemoveDrawObject("BAM_NewsGuardMsg");
+                }
+
                 // Pintar Stop Loss y Take Profit solo cuando hay posicion abierta
                 BAM_Pintar(pos, avgPrice);
 
@@ -528,6 +582,71 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 Print("[BAM Exec ERROR] " + ex.Message);
             }
+        }
+
+        private void BAM_AplicarPresetCuenta()
+        {
+            try
+            {
+                BAM_PerfilCuenta perfilAAplicar = BAM_Perfil;
+
+                if (perfilAAplicar == BAM_PerfilCuenta.AutoDeteccion)
+                {
+                    double cash = 50000;
+                    string name = "";
+                    if (Account != null)
+                    {
+                        try { cash = Account.Get(AccountItem.CashValue, Currency.UsDollar); } catch {}
+                        if (Account.Name != null) name = Account.Name.ToUpper();
+                    }
+
+                    if (cash >= 140000 || name.Contains("150K") || name.Contains("150000")) perfilAAplicar = BAM_PerfilCuenta.Cuenta_150K;
+                    else if (cash >= 90000 || name.Contains("100K") || name.Contains("100000")) perfilAAplicar = BAM_PerfilCuenta.Cuenta_100K;
+                    else perfilAAplicar = BAM_PerfilCuenta.Cuenta_50K;
+
+                    Print("[BAM AUTO-DETECCION] Perfil detectado: " + perfilAAplicar + " (Saldo: $" + cash.ToString("N0") + ", Cuenta: " + name + ")");
+                }
+
+                if (perfilAAplicar == BAM_PerfilCuenta.Cuenta_50K)
+                { BAM_Contratos = 2; BAM_PerdMax = 500; BAM_GanObj = 1000; BAM_SLL = 30; BAM_SLS = 30; BAM_TPL = 60; BAM_TPS = 60; }
+                else if (perfilAAplicar == BAM_PerfilCuenta.Cuenta_100K)
+                { BAM_Contratos = 5; BAM_PerdMax = 1000; BAM_GanObj = 2000; BAM_SLL = 40; BAM_SLS = 40; BAM_TPL = 80; BAM_TPS = 80; }
+                else if (perfilAAplicar == BAM_PerfilCuenta.Cuenta_150K)
+                { BAM_Contratos = 15; BAM_PerdMax = 1500; BAM_GanObj = 3000; BAM_SLL = 103; BAM_SLS = 103; BAM_TPL = 384; BAM_TPS = 384; }
+            }
+            catch (Exception ex)
+            {
+                Print("[BAM AutoDeteccion ERROR] " + ex.Message);
+            }
+        }
+
+        private bool EsHorarioNoticia()
+        {
+            try
+            {
+                if (!BAM_UsarNewsGuard || Time == null || CurrentBar < 0) return false;
+
+                DateTime dt = Time[0];
+
+                // Horarios estandar de noticias de alto impacto USD (EST):
+                // 08:30 AM (83000), 10:00 AM (100000), 14:00 PM (140000)
+                int[] newsTimes = new int[] { 83000, 100000, 140000 };
+
+                foreach (int newsTime in newsTimes)
+                {
+                    int newsTotalMin = (newsTime / 10000) * 60 + ((newsTime % 10000) / 100);
+                    int currentTotalMin = dt.Hour * 60 + dt.Minute;
+
+                    int minDiff = currentTotalMin - newsTotalMin;
+
+                    if (minDiff >= -BAM_MinAntesNoticia && minDiff <= BAM_MinDespuesNoticia)
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch {}
+            return false;
         }
 
         private void BAM_Pintar(MarketPosition pos, double avgPrice)
@@ -805,11 +924,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Border sec3 = CreateSectionBox("3. PROFIT LOCK (4 STAGES)", "#34D399", sec3Stack);
                 Grid.SetColumn(sec3, 0);
 
-                // Section 4: Pre-Opening Analysis
+                // Section 4: Escudo de Fondeo & News Guard
                 StackPanel sec4Stack = new StackPanel();
-                sec4Stack.Children.Add(CreateKvRow("Range Threshold:", BAM_CuerpoMax.ToString() + " pts", "#FFFFFF"));
-                sec4Stack.Children.Add(CreateKvRow("Shield Status:", "SAFE / PROTECTED", "#10B981"));
-                Border sec4 = CreateSectionBox("4. PRE-OPENING ANALYSIS (08:00 - 09:29 AM)", "#A78BFA", sec4Stack);
+                sec4Stack.Children.Add(CreateKvRow("Drawdown Guard:", BAM_UsarEscudoFondeo ? "ACTIVO ($" + BAM_MaxRetrocesoFlotante.ToString("N0") + ")" : "DESACTIVADO", BAM_UsarEscudoFondeo ? "#10B981" : "#EF4444"));
+                sec4Stack.Children.Add(CreateKvRow("News Guard:", BAM_UsarNewsGuard ? "PROTEGIDO" : "OFF", BAM_UsarNewsGuard ? "#10B981" : "#F59E0B"));
+                sec4Stack.Children.Add(CreateKvRow("Account Mode:", BAM_Perfil.ToString().Replace("Cuenta_", ""), "#38BDF8"));
+                Border sec4 = CreateSectionBox("4. ESCUDOS & DETECCION", "#A78BFA", sec4Stack);
                 Grid.SetColumn(sec4, 2);
 
                 midRow.Children.Add(sec3);
