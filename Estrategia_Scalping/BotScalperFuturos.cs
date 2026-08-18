@@ -219,7 +219,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     BarsRequiredToTrade           = 15;
 
                     BSC_Perfil    = BSC_PerfilCuenta.AutoDeteccion;
-                    BSC_Contratos = 1;
+                    BSC_Contratos = 10;
                     BSC_Long      = true;
                     BSC_Short     = true;
 
@@ -242,17 +242,17 @@ namespace NinjaTrader.NinjaScript.Strategies
                     BSC_HrIn2   = 140000;
                     BSC_HrFin2  = 154500;
 
-                    BSC_PerdMax   = 150;
-                    BSC_GanObj    = 300;
+                    BSC_PerdMax   = 400;
+                    BSC_GanObj    = 800;
                     BSC_MaxTrades = 3;
                     BSC_UsarEscudoFondeo     = true;
                     BSC_PicoMinimoEscudo     = 100;
                     BSC_MaxRetrocesoFlotante = 50;
 
-                    BSC_SL        = 16;
-                    BSC_TP        = 24;
+                    BSC_SL        = 24;
+                    BSC_TP        = 40;
                     BSC_BE        = true;
-                    BSC_BETick    = 10;
+                    BSC_BETick    = 16;
                     BSC_BEOfs     = 2;
                 }
                 else if (State == State.Configure)
@@ -509,12 +509,18 @@ namespace NinjaTrader.NinjaScript.Strategies
                     else perfil = BSC_PerfilCuenta.Cuenta_50K;
                 }
 
-                if (perfil == BSC_PerfilCuenta.Cuenta_50K)
-                { BSC_Contratos = 1; BSC_PerdMax = 150; BSC_GanObj = 300; BSC_SL = 16; BSC_TP = 24; }
+                bool isMnq = (Instrument != null && (Instrument.MasterInstrument.Name.Contains("MNQ") || Instrument.MasterInstrument.Name.Contains("NQ")));
+
+                if (isMnq || BSC_Contratos >= 5)
+                {
+                    BSC_Contratos = 10; BSC_PerdMax = 400; BSC_GanObj = 800; BSC_SL = 24; BSC_TP = 40;
+                }
+                else if (perfil == BSC_PerfilCuenta.Cuenta_50K)
+                { BSC_Contratos = 5; BSC_PerdMax = 200; BSC_GanObj = 400; BSC_SL = 24; BSC_TP = 40; }
                 else if (perfil == BSC_PerfilCuenta.Cuenta_100K)
-                { BSC_Contratos = 2; BSC_PerdMax = 300; BSC_GanObj = 600; BSC_SL = 16; BSC_TP = 24; }
+                { BSC_Contratos = 10; BSC_PerdMax = 400; BSC_GanObj = 800; BSC_SL = 24; BSC_TP = 40; }
                 else if (perfil == BSC_PerfilCuenta.Cuenta_150K)
-                { BSC_Contratos = 3; BSC_PerdMax = 450; BSC_GanObj = 900; BSC_SL = 16; BSC_TP = 24; }
+                { BSC_Contratos = 15; BSC_PerdMax = 600; BSC_GanObj = 1200; BSC_SL = 24; BSC_TP = 40; }
             }
             catch {}
         }
