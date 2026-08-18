@@ -114,6 +114,14 @@ namespace NinjaTrader.NinjaScript.Strategies
         [NinjaScriptProperty]
         [Display(Name = "Slope Minimo (Ticks)", Order = 7, GroupName = "2_Scalping_Indicadores")]
         public double BSC_SlopeMin { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Activar Separacion Minima EMA", Order = 8, GroupName = "2_Scalping_Indicadores")]
+        public bool BSC_UsarSeparacion { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Separacion Minima (Ticks)", Order = 9, GroupName = "2_Scalping_Indicadores")]
+        public int BSC_SepMin { get; set; }
         #endregion
 
         #region 3_Filtros_Vela
@@ -222,6 +230,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     BSC_EmaFiltro    = 50;
                     BSC_UsarSlopeFilter = true;
                     BSC_SlopeMin     = 0.3;
+                    BSC_UsarSeparacion = true;
+                    BSC_SepMin       = 1;
 
                     BSC_FiltroCuerpo = true;
                     BSC_CuerpoMin    = 2;
@@ -377,6 +387,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                 double cuerpo = Math.Abs(Close[0] - Open[0]) / TickSize;
                 double slope  = (bsc_emaFilter != null && CurrentBar >= 2) ? (bsc_emaFilter[0] - bsc_emaFilter[2]) / TickSize : 0;
+                double sep    = (bsc_emaFast != null && bsc_emaMid != null) ? Math.Abs(bsc_emaFast[0] - bsc_emaMid[0]) / TickSize : 0;
 
                 // CONDICION LONG (COMPRA SCALPER)
                 if (BSC_Long && pos == MarketPosition.Flat)
@@ -384,10 +395,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                     bool vwapOk   = !BSC_UsarVwap || Close[0] > currentVwap;
                     bool filterOk = !BSC_UsarEmaFiltro || (bsc_emaFilter != null && Close[0] > bsc_emaFilter[0]);
                     bool slopeOk  = !BSC_UsarSlopeFilter || slope >= BSC_SlopeMin;
+                    bool sepOk    = !BSC_UsarSeparacion || sep >= BSC_SepMin;
                     bool crossOk  = bsc_emaFast[0] > bsc_emaMid[0] && bsc_emaFast[1] <= bsc_emaMid[1];
                     bool cOk      = !BSC_FiltroCuerpo || (cuerpo >= BSC_CuerpoMin && cuerpo <= BSC_CuerpoMax);
 
-                    if (vwapOk && filterOk && slopeOk && crossOk && cOk && Close[0] > Open[0])
+                    if (vwapOk && filterOk && slopeOk && sepOk && crossOk && cOk && Close[0] > Open[0])
                     {
                         SetStopLoss("BSC_L", CalculationMode.Ticks, BSC_SL, false);
                         SetProfitTarget("BSC_L", CalculationMode.Ticks, BSC_TP);
@@ -401,10 +413,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                     bool vwapOk   = !BSC_UsarVwap || Close[0] < currentVwap;
                     bool filterOk = !BSC_UsarEmaFiltro || (bsc_emaFilter != null && Close[0] < bsc_emaFilter[0]);
                     bool slopeOk  = !BSC_UsarSlopeFilter || slope <= -BSC_SlopeMin;
+                    bool sepOk    = !BSC_UsarSeparacion || sep >= BSC_SepMin;
                     bool crossOk  = bsc_emaFast[0] < bsc_emaMid[0] && bsc_emaFast[1] >= bsc_emaMid[1];
                     bool cOk      = !BSC_FiltroCuerpo || (cuerpo >= BSC_CuerpoMin && cuerpo <= BSC_CuerpoMax);
 
-                    if (vwapOk && filterOk && slopeOk && crossOk && cOk && Close[0] < Open[0])
+                    if (vwapOk && filterOk && slopeOk && sepOk && crossOk && cOk && Close[0] < Open[0])
                     {
                         SetStopLoss("BSC_S", CalculationMode.Ticks, BSC_SL, false);
                         SetProfitTarget("BSC_S", CalculationMode.Ticks, BSC_TP);
