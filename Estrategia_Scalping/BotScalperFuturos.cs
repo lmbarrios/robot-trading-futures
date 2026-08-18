@@ -235,7 +235,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     BSC_FiltroCuerpo = true;
                     BSC_CuerpoMin    = 2;
-                    BSC_CuerpoMax    = 12;
+                    BSC_CuerpoMax    = 40;
 
                     BSC_HrIn1   = 93500;
                     BSC_HrFin1  = 114500;
@@ -513,14 +513,14 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                 if (isMnq || BSC_Contratos >= 5)
                 {
-                    BSC_Contratos = 10; BSC_PerdMax = 400; BSC_GanObj = 800; BSC_SL = 24; BSC_TP = 40;
+                    BSC_Contratos = 10; BSC_PerdMax = 400; BSC_GanObj = 800; BSC_SL = 24; BSC_TP = 40; BSC_CuerpoMax = 40;
                 }
                 else if (perfil == BSC_PerfilCuenta.Cuenta_50K)
-                { BSC_Contratos = 5; BSC_PerdMax = 200; BSC_GanObj = 400; BSC_SL = 24; BSC_TP = 40; }
+                { BSC_Contratos = 5; BSC_PerdMax = 200; BSC_GanObj = 400; BSC_SL = 24; BSC_TP = 40; BSC_CuerpoMax = 40; }
                 else if (perfil == BSC_PerfilCuenta.Cuenta_100K)
-                { BSC_Contratos = 10; BSC_PerdMax = 400; BSC_GanObj = 800; BSC_SL = 24; BSC_TP = 40; }
+                { BSC_Contratos = 10; BSC_PerdMax = 400; BSC_GanObj = 800; BSC_SL = 24; BSC_TP = 40; BSC_CuerpoMax = 40; }
                 else if (perfil == BSC_PerfilCuenta.Cuenta_150K)
-                { BSC_Contratos = 15; BSC_PerdMax = 600; BSC_GanObj = 1200; BSC_SL = 24; BSC_TP = 40; }
+                { BSC_Contratos = 15; BSC_PerdMax = 600; BSC_GanObj = 1200; BSC_SL = 24; BSC_TP = 40; BSC_CuerpoMax = 40; }
             }
             catch {}
         }
