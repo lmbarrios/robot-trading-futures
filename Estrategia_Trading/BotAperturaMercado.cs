@@ -339,6 +339,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }), DispatcherPriority.Background);
                 }
 
+                // CANDADO INTELIGENTE DUAL DE SEGURIDAD (Protege cuenta real en grafico, permite Backtest en Strategy Analyzer)
+                if (ChartControl != null && State != State.Realtime) return;
+
                 if (Bars == null || CurrentBar < BarsRequiredToTrade) return;
                 if (!bam_ok || isPaused) return;
                 if (bam_rapida == null || bam_media == null) return;
