@@ -28,6 +28,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         // Campos privados
         private EMA      bsc_emaFast;
         private EMA      bsc_emaMid;
+        private EMA      bsc_emaFilter;
         private double   bsc_pnl          = 0;
         private int      bsc_ops          = 0;
         private bool     bsc_lock         = false;
@@ -96,6 +97,15 @@ namespace NinjaTrader.NinjaScript.Strategies
         [NinjaScriptProperty]
         [Display(Name = "Filtrar por VWAP (Sesion)", Order = 3, GroupName = "2_Scalping_Indicadores")]
         public bool BSC_UsarVwap { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Usar Filtro Tendencia EMA 50", Order = 4, GroupName = "2_Scalping_Indicadores")]
+        public bool BSC_UsarEmaFiltro { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1, int.MaxValue)]
+        [Display(Name = "EMA Filtro Periodo", Order = 5, GroupName = "2_Scalping_Indicadores")]
+        public int BSC_EmaFiltro { get; set; }
         #endregion
 
         #region 3_Filtros_Vela
@@ -193,9 +203,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                     BSC_Long      = true;
                     BSC_Short     = true;
 
-                    BSC_EmaRapida = 3;
-                    BSC_EmaMedia  = 9;
-                    BSC_UsarVwap  = true;
+                    BSC_EmaRapida    = 3;
+                    BSC_EmaMedia     = 9;
+                    BSC_UsarVwap     = true;
+                    BSC_UsarEmaFiltro= true;
+                    BSC_EmaFiltro    = 50;
 
                     BSC_FiltroCuerpo = true;
                     BSC_CuerpoMin    = 2;
@@ -229,9 +241,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
                 else if (State == State.DataLoaded)
                 {
-                    bsc_emaFast = EMA(BSC_EmaRapida);
-                    bsc_emaMid  = EMA(BSC_EmaMedia);
-                    Print("[BSC SCALPER] Cargado correctamente.");
+                    bsc_emaFast   = EMA(BSC_EmaRapida);
+                    bsc_emaMid    = EMA(BSC_EmaMedia);
+                    bsc_emaFilter = EMA(BSC_EmaFiltro);
+                    Print("[BSC SCALPER] Cargado correctamente con Filtro EMA(" + BSC_EmaFiltro + ").");
 
                     if (ChartControl != null && ChartControl.Dispatcher != null)
                     {
@@ -352,11 +365,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // CONDICION LONG (COMPRA SCALPER)
                 if (BSC_Long && pos == MarketPosition.Flat)
                 {
-                    bool vwapOk = !BSC_UsarVwap || Close[0] > currentVwap;
-                    bool crossOk = bsc_emaFast[0] > bsc_emaMid[0] && bsc_emaFast[1] <= bsc_emaMid[1];
-                    bool cOk    = !BSC_FiltroCuerpo || (cuerpo >= BSC_CuerpoMin && cuerpo <= BSC_CuerpoMax);
+                    bool vwapOk   = !BSC_UsarVwap || Close[0] > currentVwap;
+                    bool filterOk = !BSC_UsarEmaFiltro || (bsc_emaFilter != null && Close[0] > bsc_emaFilter[0]);
+                    bool crossOk  = bsc_emaFast[0] > bsc_emaMid[0] && bsc_emaFast[1] <= bsc_emaMid[1];
+                    bool cOk      = !BSC_FiltroCuerpo || (cuerpo >= BSC_CuerpoMin && cuerpo <= BSC_CuerpoMax);
 
-                    if (vwapOk && crossOk && cOk && Close[0] > Open[0])
+                    if (vwapOk && filterOk && crossOk && cOk && Close[0] > Open[0])
                     {
                         SetStopLoss("BSC_L", CalculationMode.Ticks, BSC_SL, false);
                         SetProfitTarget("BSC_L", CalculationMode.Ticks, BSC_TP);
@@ -367,11 +381,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                 // CONDICION SHORT (VENTA SCALPER)
                 else if (BSC_Short && pos == MarketPosition.Flat)
                 {
-                    bool vwapOk = !BSC_UsarVwap || Close[0] < currentVwap;
-                    bool crossOk = bsc_emaFast[0] < bsc_emaMid[0] && bsc_emaFast[1] >= bsc_emaMid[1];
-                    bool cOk    = !BSC_FiltroCuerpo || (cuerpo >= BSC_CuerpoMin && cuerpo <= BSC_CuerpoMax);
+                    bool vwapOk   = !BSC_UsarVwap || Close[0] < currentVwap;
+                    bool filterOk = !BSC_UsarEmaFiltro || (bsc_emaFilter != null && Close[0] < bsc_emaFilter[0]);
+                    bool crossOk  = bsc_emaFast[0] < bsc_emaMid[0] && bsc_emaFast[1] >= bsc_emaMid[1];
+                    bool cOk      = !BSC_FiltroCuerpo || (cuerpo >= BSC_CuerpoMin && cuerpo <= BSC_CuerpoMax);
 
-                    if (vwapOk && crossOk && cOk && Close[0] < Open[0])
+                    if (vwapOk && filterOk && crossOk && cOk && Close[0] < Open[0])
                     {
                         SetStopLoss("BSC_S", CalculationMode.Ticks, BSC_SL, false);
                         SetProfitTarget("BSC_S", CalculationMode.Ticks, BSC_TP);
@@ -658,6 +673,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                 StackPanel sec1Stack = new StackPanel();
                 sec1Stack.Children.Add(CreateKvRow("Scalper Trigger:", "EMA(3) x EMA(9)", "#FFFFFF"));
+                sec1Stack.Children.Add(CreateKvRow("Trend Filter:", BSC_UsarEmaFiltro ? ("EMA(" + BSC_EmaFiltro + ") ACTIVE") : "OFF", BSC_UsarEmaFiltro ? "#10B981" : "#F59E0B"));
                 sec1Stack.Children.Add(CreateKvRow("VWAP Filter:", BSC_UsarVwap ? "ACTIVE" : "OFF", BSC_UsarVwap ? "#10B981" : "#F59E0B"));
                 sec1Stack.Children.Add(CreateKvRow("Contracts:", BSC_Contratos.ToString(), "#FFFFFF"));
                 Border sec1 = CreateSectionBox("1. SCALPING INDICATORS", "#38BDF8", sec1Stack);
