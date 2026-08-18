@@ -106,6 +106,14 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Range(1, int.MaxValue)]
         [Display(Name = "EMA Filtro Periodo", Order = 5, GroupName = "2_Scalping_Indicadores")]
         public int BSC_EmaFiltro { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Activar Filtro Inclinacion Slope", Order = 6, GroupName = "2_Scalping_Indicadores")]
+        public bool BSC_UsarSlopeFilter { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Slope Minimo (Ticks)", Order = 7, GroupName = "2_Scalping_Indicadores")]
+        public double BSC_SlopeMin { get; set; }
         #endregion
 
         #region 3_Filtros_Vela
@@ -150,15 +158,19 @@ namespace NinjaTrader.NinjaScript.Strategies
         public double BSC_GanObj { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Activar Escudo Trailing Drawdown", Order = 3, GroupName = "5_Riesgo_y_Escudos")]
+        [Display(Name = "Max Operaciones al Dia", Order = 3, GroupName = "5_Riesgo_y_Escudos")]
+        public int BSC_MaxTrades { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Activar Escudo Trailing Drawdown", Order = 4, GroupName = "5_Riesgo_y_Escudos")]
         public bool BSC_UsarEscudoFondeo { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Pico Minimo Escudo ($)", Order = 4, GroupName = "5_Riesgo_y_Escudos")]
+        [Display(Name = "Pico Minimo Escudo ($)", Order = 5, GroupName = "5_Riesgo_y_Escudos")]
         public double BSC_PicoMinimoEscudo { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Retroceso Maximo Escudo ($)", Order = 5, GroupName = "5_Riesgo_y_Escudos")]
+        [Display(Name = "Retroceso Maximo Escudo ($)", Order = 6, GroupName = "5_Riesgo_y_Escudos")]
         public double BSC_MaxRetrocesoFlotante { get; set; }
         #endregion
 
@@ -208,6 +220,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     BSC_UsarVwap     = true;
                     BSC_UsarEmaFiltro= true;
                     BSC_EmaFiltro    = 50;
+                    BSC_UsarSlopeFilter = true;
+                    BSC_SlopeMin     = 0.3;
 
                     BSC_FiltroCuerpo = true;
                     BSC_CuerpoMin    = 2;
@@ -220,6 +234,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     BSC_PerdMax   = 150;
                     BSC_GanObj    = 300;
+                    BSC_MaxTrades = 3;
                     BSC_UsarEscudoFondeo     = true;
                     BSC_PicoMinimoEscudo     = 100;
                     BSC_MaxRetrocesoFlotante = 50;
@@ -340,7 +355,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                 BSC_Pintar(pos, avgPrice);
 
-                if (bsc_lock || (BSC_PerdMax > 0 && bsc_pnl <= -Math.Abs(BSC_PerdMax)) || (BSC_GanObj > 0 && bsc_pnl >= BSC_GanObj))
+                if (bsc_lock || (BSC_MaxTrades > 0 && bsc_ops >= BSC_MaxTrades) || (BSC_PerdMax > 0 && bsc_pnl <= -Math.Abs(BSC_PerdMax)) || (BSC_GanObj > 0 && bsc_pnl >= BSC_GanObj))
                 {
                     return;
                 }
@@ -361,16 +376,18 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (bsc_emaFast == null || bsc_emaMid == null) return;
 
                 double cuerpo = Math.Abs(Close[0] - Open[0]) / TickSize;
+                double slope  = (bsc_emaFilter != null && CurrentBar >= 2) ? (bsc_emaFilter[0] - bsc_emaFilter[2]) / TickSize : 0;
 
                 // CONDICION LONG (COMPRA SCALPER)
                 if (BSC_Long && pos == MarketPosition.Flat)
                 {
                     bool vwapOk   = !BSC_UsarVwap || Close[0] > currentVwap;
                     bool filterOk = !BSC_UsarEmaFiltro || (bsc_emaFilter != null && Close[0] > bsc_emaFilter[0]);
+                    bool slopeOk  = !BSC_UsarSlopeFilter || slope >= BSC_SlopeMin;
                     bool crossOk  = bsc_emaFast[0] > bsc_emaMid[0] && bsc_emaFast[1] <= bsc_emaMid[1];
                     bool cOk      = !BSC_FiltroCuerpo || (cuerpo >= BSC_CuerpoMin && cuerpo <= BSC_CuerpoMax);
 
-                    if (vwapOk && filterOk && crossOk && cOk && Close[0] > Open[0])
+                    if (vwapOk && filterOk && slopeOk && crossOk && cOk && Close[0] > Open[0])
                     {
                         SetStopLoss("BSC_L", CalculationMode.Ticks, BSC_SL, false);
                         SetProfitTarget("BSC_L", CalculationMode.Ticks, BSC_TP);
@@ -383,10 +400,11 @@ namespace NinjaTrader.NinjaScript.Strategies
                 {
                     bool vwapOk   = !BSC_UsarVwap || Close[0] < currentVwap;
                     bool filterOk = !BSC_UsarEmaFiltro || (bsc_emaFilter != null && Close[0] < bsc_emaFilter[0]);
+                    bool slopeOk  = !BSC_UsarSlopeFilter || slope <= -BSC_SlopeMin;
                     bool crossOk  = bsc_emaFast[0] < bsc_emaMid[0] && bsc_emaFast[1] >= bsc_emaMid[1];
                     bool cOk      = !BSC_FiltroCuerpo || (cuerpo >= BSC_CuerpoMin && cuerpo <= BSC_CuerpoMax);
 
-                    if (vwapOk && filterOk && crossOk && cOk && Close[0] < Open[0])
+                    if (vwapOk && filterOk && slopeOk && crossOk && cOk && Close[0] < Open[0])
                     {
                         SetStopLoss("BSC_S", CalculationMode.Ticks, BSC_SL, false);
                         SetProfitTarget("BSC_S", CalculationMode.Ticks, BSC_TP);
@@ -702,6 +720,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Grid.SetColumn(sec3, 0);
 
                 StackPanel sec4Stack = new StackPanel();
+                sec4Stack.Children.Add(CreateKvRow("Max Trades/Day:", BSC_MaxTrades > 0 ? BSC_MaxTrades.ToString() : "Unlimited", "#FFFFFF"));
                 sec4Stack.Children.Add(CreateKvRow("Drawdown Guard:", BSC_UsarEscudoFondeo ? "ACTIVE ($" + BSC_MaxRetrocesoFlotante.ToString("N0") + ")" : "OFF", BSC_UsarEscudoFondeo ? "#10B981" : "#EF4444"));
                 sec4Stack.Children.Add(CreateKvRow("Max Daily Loss:", "-$" + BSC_PerdMax.ToString("N0"), "#EF4444"));
                 sec4Stack.Children.Add(CreateKvRow("Daily Target:", "+$" + BSC_GanObj.ToString("N0"), "#10B981"));
