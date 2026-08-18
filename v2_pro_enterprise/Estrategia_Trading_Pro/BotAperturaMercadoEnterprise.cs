@@ -328,7 +328,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 			panel.Children.Add(pnlText);
 
 			btnFlatten = new Button { Content = "🚨 FLATTEN & CANCEL ALL", Background = new SolidColorBrush(Color.FromRgb(239, 68, 68)), Foreground = Brushes.White, FontWeight = FontWeights.Bold, Height = 32, Margin = new Thickness(0, 3, 0, 3) };
-			btnFlatten.Click += (s, e) => { ExitLong(); ExitShort(); };
+			btnFlatten.Click += (s, e) => { FlattenAllAndCancelOrders(); };
 			panel.Children.Add(btnFlatten);
 
 			btnPause = new Button { Content = "⏸️ PAUSE BOT", Background = new SolidColorBrush(Color.FromRgb(249, 115, 22)), Foreground = Brushes.White, FontWeight = FontWeights.Bold, Height = 28, Margin = new Thickness(0, 2, 0, 2) };
@@ -341,6 +341,47 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 			hudBorder.Child = panel;
 			chartGrid.Children.Add(hudBorder);
+		}
+
+		private void FlattenAllAndCancelOrders()
+		{
+			try
+			{
+				if (Account != null && Account.Orders != null)
+				{
+					List<Order> workingOrders = new List<Order>();
+					foreach (Order o in Account.Orders)
+					{
+						if (o != null && (o.OrderState == OrderState.Working ||
+										  o.OrderState == OrderState.Submitted ||
+										  o.OrderState == OrderState.Accepted))
+						{
+							workingOrders.Add(o);
+						}
+					}
+					if (workingOrders.Count > 0)
+					{
+						Account.Cancel(workingOrders.ToArray());
+						Print("[BOT ENTERPRISE] Canceladas " + workingOrders.Count + " órdenes pendientes.");
+					}
+				}
+
+				if (Position != null && Position.MarketPosition != MarketPosition.Flat)
+				{
+					ExitLong();
+					ExitShort();
+
+					if (Account != null && Instrument != null)
+					{
+						Account.Flatten(new[] { Instrument });
+					}
+					Print("[BOT ENTERPRISE] Posición liquidada completamente.");
+				}
+			}
+			catch (Exception ex)
+			{
+				Print("[BOT ENTERPRISE FLATTEN ERROR] " + ex.Message);
+			}
 		}
 
 		private void DisposeWpfHudPanel()

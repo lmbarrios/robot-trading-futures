@@ -169,24 +169,58 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 		private void FlattenAllSlaveAccounts()
 		{
-			lock (Account.All)
+			isReplicationActive = false;
+			if (Account.All != null)
 			{
-				foreach (Account slaveAcc in slaveAccountsList)
+				lock (Account.All)
 				{
-					try
+					foreach (Account slaveAcc in slaveAccountsList)
 					{
-						foreach (Order o in slaveAcc.Orders)
+						if (slaveAcc == null) continue;
+						try
 						{
-							if (o.OrderState == OrderState.Working || o.OrderState == OrderState.Submitted)
+							// 1. Cancelar todas las órdenes pendientes en la cuenta esclava
+							if (slaveAcc.Orders != null)
 							{
-								slaveAcc.Cancel(new[] { o });
+								List<Order> workingOrders = new List<Order>();
+								foreach (Order o in slaveAcc.Orders)
+								{
+									if (o != null && (o.OrderState == OrderState.Working ||
+													  o.OrderState == OrderState.Submitted ||
+													  o.OrderState == OrderState.Accepted))
+									{
+										workingOrders.Add(o);
+									}
+								}
+								if (workingOrders.Count > 0)
+								{
+									slaveAcc.Cancel(workingOrders.ToArray());
+									Print("[REPLICADOR ENTERPRISE] Canceladas " + workingOrders.Count + " órdenes pendientes en: " + slaveAcc.Name);
+								}
+							}
+
+							// 2. Liquidar de forma nativa todas las posiciones abiertas en la cuenta esclava
+							if (slaveAcc.Positions != null)
+							{
+								List<Instrument> activeInstruments = new List<Instrument>();
+								foreach (Position pos in slaveAcc.Positions)
+								{
+									if (pos != null && pos.MarketPosition != MarketPosition.Flat && pos.Quantity > 0)
+									{
+										activeInstruments.Add(pos.Instrument);
+									}
+								}
+								if (activeInstruments.Count > 0)
+								{
+									slaveAcc.Flatten(activeInstruments.ToArray());
+									Print("[REPLICADOR ENTERPRISE NATIVO] Posiciones liquidadas en: " + slaveAcc.Name);
+								}
 							}
 						}
-						Print("[REPLICADOR ENTERPRISE] Flatten ejecutado en: " + slaveAcc.Name);
-					}
-					catch (Exception ex)
-					{
-						Print("[ERROR FLATTEN] " + slaveAcc.Name + ": " + ex.Message);
+						catch (Exception ex)
+						{
+							Print("[ERROR FLATTEN] " + slaveAcc.Name + ": " + ex.Message);
+						}
 					}
 				}
 			}

@@ -1115,7 +1115,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     statusText.Text = "● STATE: PAUSED / FLATTENED";
                     statusText.Foreground = HexColor("#EF4444");
                 }
-                AppendActivityLog(DateTime.Now.ToString("HH:mm:ss") + " — Emergency Flatten executed across all slaves.");
+                AppendActivityLog(DateTime.Now.ToString("HH:mm:ss") + " — Emergency Flatten & Cancel executed across all slaves.");
 
                 if (Account.All != null)
                 {
@@ -1126,12 +1126,43 @@ namespace NinjaTrader.NinjaScript.Strategies
                             if (slaveAcc == null) continue;
                             try
                             {
-                                foreach (Order o in slaveAcc.Orders)
+                                // 1. Cancelar todas las ordenes pendientes en la cuenta esclava
+                                if (slaveAcc.Orders != null)
                                 {
-                                    if (o.OrderState == OrderState.Working || o.OrderState == OrderState.Submitted)
-                                        slaveAcc.Cancel(new[] { o });
+                                    List<Order> workingOrders = new List<Order>();
+                                    foreach (Order o in slaveAcc.Orders)
+                                    {
+                                        if (o != null && (o.OrderState == OrderState.Working ||
+                                                          o.OrderState == OrderState.Submitted ||
+                                                          o.OrderState == OrderState.Accepted))
+                                        {
+                                            workingOrders.Add(o);
+                                        }
+                                    }
+                                    if (workingOrders.Count > 0)
+                                    {
+                                        slaveAcc.Cancel(workingOrders.ToArray());
+                                        Print("[RMF FLATTEN] Canceladas " + workingOrders.Count + " ordenes pendientes en: " + slaveAcc.Name);
+                                    }
                                 }
-                                Print("[RMF FLATTEN] Ordenes canceladas en: " + slaveAcc.Name);
+
+                                // 2. Liquidar de forma nativa todas las posiciones abiertas en la cuenta esclava
+                                if (slaveAcc.Positions != null)
+                                {
+                                    List<Instrument> activeInstruments = new List<Instrument>();
+                                    foreach (Position pos in slaveAcc.Positions)
+                                    {
+                                        if (pos != null && pos.MarketPosition != MarketPosition.Flat && pos.Quantity > 0)
+                                        {
+                                            activeInstruments.Add(pos.Instrument);
+                                        }
+                                    }
+                                    if (activeInstruments.Count > 0)
+                                    {
+                                        slaveAcc.Flatten(activeInstruments.ToArray());
+                                        Print("[RMF FLATTEN NATIVO] Posiciones liquidadas en: " + slaveAcc.Name);
+                                    }
+                                }
                             }
                             catch (Exception ex)
                             {

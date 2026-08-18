@@ -18,23 +18,24 @@ using NinjaTrader.Data;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.Core.FloatingPoint;
 using NinjaTrader.NinjaScript.Indicators;
+using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Strategies
 {
-	public enum FundedAccountProfile
+	public enum PerfilCuentaEnterprise
 	{
-		AutoDetection,
-		Account_50K,
-		Account_100K,
-		Account_150K,
-		Custom
+		AutoDeteccion,
+		Cuenta_50K,
+		Cuenta_100K,
+		Cuenta_150K,
+		Personalizado
 	}
 
 	/// <summary>
-	/// Enterprise Automated Futures Strategy with Integrated Funded Account Protection, News Guard, and Cloud Licensing.
+	/// Estrategia Automatizada Enterprise de Futuros con Módulo Integrado de Protección de Fondeo, Filtro de Noticias y Licenciamiento Nube.
 	/// </summary>
-	public class MarketOpeningBotEnterprise : Strategy
+	public class BotAperturaMercadoEnterprise : Strategy
 	{
 		#region Private Fields
 		private EMA emaFast;
@@ -50,9 +51,9 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 		// HWID & Cloud License Status
 		private string machineHwid = "";
-		private string cloudLicenseStatus = "VERIFYING...";
+		private string cloudLicenseStatus = "VERIFICANDO...";
 
-		// WPF HUD Elements
+		// Elementos WPF de la Interfaz HUD
 		private Grid chartGrid;
 		private Border hudBorder;
 		private TextBlock statusText;
@@ -62,85 +63,85 @@ namespace NinjaTrader.NinjaScript.Strategies
 		private Button btnReset;
 		#endregion
 
-		#region Properties - 0. Cloud License & Security
+		#region Properties - 0. Sistema Licencia Nube & HWID
 		[NinjaScriptProperty]
-		[Display(Name = "Enable Cloud License Check (Firebase)", Description = "Verifies subscription status against the SaaS cloud server.", Order = 1, GroupName = "0. Cloud License & Security")]
+		[Display(Name = "Activar Validación Licencia Nube (Firebase)", Description = "Verifica la validez de la suscripción contra el servidor SaaS en la nube.", Order = 1, GroupName = "0. Licencia & Seguridad Nube")]
 		public bool UseCloudLicenseValidation { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Customer Email", Description = "Email address registered in the SaaS portal.", Order = 2, GroupName = "0. Cloud License & Security")]
+		[Display(Name = "Correo Registrado (Email Cliente)", Description = "Correo electrónico asociado a la suscripción del software.", Order = 2, GroupName = "0. Licencia & Seguridad Nube")]
 		public string CustomerEmail { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "License Key", Description = "License key provided in the SaaS dashboard.", Order = 3, GroupName = "0. Cloud License & Security")]
+		[Display(Name = "Clave de Licencia (License Key)", Description = "Clave de acceso provista en el portal SaaS.", Order = 3, GroupName = "0. Licencia & Seguridad Nube")]
 		public string LicenseKey { get; set; }
 		#endregion
 
-		#region Properties - 1. General & Position
+		#region Properties - 1. General & Posición
 		[NinjaScriptProperty]
-		[Display(Name = "Funded Account Profile (AutoDetection)", Description = "Automatic or manual selection of funded account size (50K, 100K, 150K).", Order = 1, GroupName = "1. General & Position")]
-		public FundedAccountProfile AccountProfile { get; set; }
+		[Display(Name = "Perfil de Cuenta (AutoDeteccion)", Description = "Selección automática o manual de perfil de fondeo (50K, 100K, 150K).", Order = 1, GroupName = "1. General & Posición")]
+		public PerfilCuentaEnterprise PerfilCuenta { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Contracts / Quantity", Order = 2, GroupName = "1. General & Position")]
+		[Display(Name = "Contratos / Lotes", Order = 2, GroupName = "1. General & Posición")]
 		public int Contracts { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Enable Long Trades", Order = 3, GroupName = "1. General & Position")]
+		[Display(Name = "Habilitar Compras (Longs)", Order = 3, GroupName = "1. General & Posición")]
 		public bool EnableLongs { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Enable Short Trades", Order = 4, GroupName = "1. General & Position")]
+		[Display(Name = "Habilitar Ventas (Shorts)", Order = 4, GroupName = "1. General & Posición")]
 		public bool EnableShorts { get; set; }
 		#endregion
 
-		#region Properties - 2. Funded Protection & Risk Guard
+		#region Properties - 2. Escudo de Fondeo & Trailing Drawdown
 		[NinjaScriptProperty]
-		[Display(Name = "Enable Funded Trailing Drawdown Guard", Description = "Protects profit cushion by preventing floating profit retracement.", Order = 1, GroupName = "2. Funded Protection & Risk Guard")]
+		[Display(Name = "Activar Escudo Trailing Drawdown Fondeo", Description = "Protege el colchón de ganancias impidiendo devolver el pico flotante máximo.", Order = 1, GroupName = "2. Escudo de Fondeo & Riesgo")]
 		public bool UseFundedDrawdownGuard { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Max Floating Profit Retracement ($)", Description = "If floating profit drops by this amount from peak, flattens position and locks account.", Order = 2, GroupName = "2. Funded Protection & Risk Guard")]
+		[Display(Name = "Retroceso Máximo de Ganancia Flotante ($)", Description = "Si las ganancias flotantes caen este valor desde el pico más alto, liquida y bloquea la cuenta.", Order = 2, GroupName = "2. Escudo de Fondeo & Riesgo")]
 		public double MaxFloatingGivebackDollars { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Max Daily Loss ($)", Order = 3, GroupName = "2. Funded Protection & Risk Guard")]
+		[Display(Name = "Pérdida Máxima Diaria ($)", Order = 3, GroupName = "2. Escudo de Fondeo & Riesgo")]
 		public double DailyMaxLossDollars { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Daily Profit Target ($)", Order = 4, GroupName = "2. Funded Protection & Risk Guard")]
+		[Display(Name = "Meta de Ganancia Diaria ($)", Order = 4, GroupName = "2. Escudo de Fondeo & Riesgo")]
 		public double DailyProfitTargetDollars { get; set; }
 		#endregion
 
-		#region Properties - 3. News Guard (High Impact Filter)
+		#region Properties - 3. Filtro de Noticias de Alto Impacto
 		[NinjaScriptProperty]
-		[Display(Name = "Enable USD Red-Folder News Guard", Description = "Prevents entries during CPI, NFP, or FOMC news releases.", Order = 1, GroupName = "3. News Guard (High Impact Filter)")]
+		[Display(Name = "Activar Filtro de Noticias Red-Folder USD", Description = "Evita entradas durante comunicados del CPI, NFP o FOMC.", Order = 1, GroupName = "3. Filtro de Noticias (News Guard)")]
 		public bool UseNewsGuard { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Minutes Before News Event", Order = 2, GroupName = "3. News Guard (High Impact Filter)")]
+		[Display(Name = "Minutos Antes de la Noticia", Order = 2, GroupName = "3. Filtro de Noticias (News Guard)")]
 		public int MinutesBeforeNews { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Minutes After News Event", Order = 3, GroupName = "3. News Guard (High Impact Filter)")]
+		[Display(Name = "Minutos Después de la Noticia", Order = 3, GroupName = "3. Filtro de Noticias (News Guard)")]
 		public int MinutesAfterNews { get; set; }
 		#endregion
 
-		#region Properties - 4. Execution & Schedule
+		#region Properties - 4. Configuración Entrada & Horario
 		[NinjaScriptProperty]
-		[Display(Name = "NY Open Time (HHMMSS)", Order = 1, GroupName = "4. Execution & Schedule")]
+		[Display(Name = "Hora Entrada NY (HHMMSS)", Order = 1, GroupName = "4. Horario & Ejecución")]
 		public int StartTime { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Force Exit Time (HHMMSS)", Order = 2, GroupName = "4. Execution & Schedule")]
+		[Display(Name = "Hora Límite Salida (HHMMSS)", Order = 2, GroupName = "4. Horario & Ejecución")]
 		public int EndTime { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Initial Stop Loss (Ticks)", Order = 3, GroupName = "4. Execution & Schedule")]
+		[Display(Name = "Stop Loss inicial (Ticks)", Order = 3, GroupName = "4. Horario & Ejecución")]
 		public int LongStopLossTicks { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Initial Profit Target (Ticks)", Order = 4, GroupName = "4. Execution & Schedule")]
+		[Display(Name = "Profit Target inicial (Ticks)", Order = 4, GroupName = "4. Horario & Ejecución")]
 		public int LongProfitTargetTicks { get; set; }
 		#endregion
 
@@ -148,16 +149,16 @@ namespace NinjaTrader.NinjaScript.Strategies
 		{
 			if (State == State.SetDefaults)
 			{
-				Description							= "Enterprise Market Opening Bot v2 with Funded Drawdown Guard, News Guard, and Cloud Licensing.";
-				Name								= "MarketOpeningBotEnterprise";
+				Description							= "Bot de Apertura Enterprise v2 con Escudo de Fondeo, News Guard y Validación Nube.";
+				Name								= "BotAperturaMercadoEnterprise";
 				Calculate							= Calculate.OnPriceChange;
-				IsInstantiatedOnEachOptimizationProperty = false;
+				IsInstantiatedOnEachOptimizationIteration = false;
 
 				UseCloudLicenseValidation			= false;
-				CustomerEmail						= "trader@example.com";
+				CustomerEmail						= "trader@ejemplo.com";
 				LicenseKey							= "PRO-ENT-2026-KEY";
 
-				AccountProfile						= FundedAccountProfile.AutoDetection;
+				PerfilCuenta						= PerfilCuentaEnterprise.AutoDeteccion;
 				Contracts							= 2;
 				EnableLongs							= true;
 				EnableShorts						= true;
@@ -187,19 +188,22 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 				emaFast = EMA(9);
 				emaMid = EMA(20);
-				AddChartIndicator(emaFast);
-				AddChartIndicator(emaMid);
+				if (ChartControl != null)
+				{
+					AddChartIndicator(emaFast);
+					AddChartIndicator(emaMid);
+				}
 			}
 			else if (State == State.Historical)
 			{
-				if (ChartControl != null)
+				if (ChartControl != null && ChartControl.Dispatcher != null)
 				{
 					ChartControl.Dispatcher.InvokeAsync(() => { CreateWpfHudPanel(); });
 				}
 			}
 			else if (State == State.Terminated)
 			{
-				if (ChartControl != null)
+				if (ChartControl != null && ChartControl.Dispatcher != null)
 				{
 					ChartControl.Dispatcher.InvokeAsync(() => { DisposeWpfHudPanel(); });
 				}
@@ -221,48 +225,46 @@ namespace NinjaTrader.NinjaScript.Strategies
 			if (!UseCloudLicenseValidation)
 			{
 				isAccountAuthorized = true;
-				cloudLicenseStatus = "LOCAL LICENSE ACTIVE";
+				cloudLicenseStatus = "LICENCIA LOCAL ACTIVA";
 				return;
 			}
 
+			// Simulación de respuesta REST Cloud
 			isAccountAuthorized = true;
-			cloudLicenseStatus = "APPROVED (HWID: " + machineHwid + ")";
-			Print("[ENTERPRISE CLOUD LICENSE] HWID: " + machineHwid + " - License verified successfully.");
+			cloudLicenseStatus = "APROBADO (HWID: " + machineHwid + ")";
+			Print("[LICENCIA NUBE ENTERPRISE] HWID: " + machineHwid + " - Licencia verificada exitosamente.");
 		}
 
 		private void ApplyAccountPreset()
 		{
-			FundedAccountProfile profileToApply = AccountProfile;
+			PerfilCuentaEnterprise perfilAAplicar = PerfilCuenta;
 
-			if (profileToApply == FundedAccountProfile.AutoDetection)
+			if (perfilAAplicar == PerfilCuentaEnterprise.AutoDeteccion)
 			{
 				double cash = 50000;
 				string name = "";
 				if (Account != null)
 				{
-					try { cash = Account.Get(AccountItem.CashValue, Currency.Usd); } catch {}
+					try { cash = Account.Get(AccountItem.CashValue, Currency.UsDollar); } catch {}
 					name = Account.Name.ToUpper();
 				}
 
-				if (cash >= 140000 || name.Contains("150K") || name.Contains("150000")) profileToApply = FundedAccountProfile.Account_150K;
-				else if (cash >= 90000 || name.Contains("100K") || name.Contains("100000")) profileToApply = FundedAccountProfile.Account_100K;
-				else profileToApply = FundedAccountProfile.Account_50K;
+				if (cash >= 140000 || name.Contains("150K") || name.Contains("150000")) perfilAAplicar = PerfilCuentaEnterprise.Cuenta_150K;
+				else if (cash >= 90000 || name.Contains("100K") || name.Contains("100000")) perfilAAplicar = PerfilCuentaEnterprise.Cuenta_100K;
+				else perfilAAplicar = PerfilCuentaEnterprise.Cuenta_50K;
 			}
 
-			if (profileToApply == FundedAccountProfile.Account_50K)
+			if (perfilAAplicar == PerfilCuentaEnterprise.Cuenta_50K)
 			{
 				Contracts = 2; DailyMaxLossDollars = 500; DailyProfitTargetDollars = 1000; LongStopLossTicks = 30; LongProfitTargetTicks = 60;
-				Print("[SMART AUTO-DETECTION] 50K Account detected. Configured 2 NQ, Max Loss -$500, Target +$1000.");
 			}
-			else if (profileToApply == FundedAccountProfile.Account_100K)
+			else if (perfilAAplicar == PerfilCuentaEnterprise.Cuenta_100K)
 			{
 				Contracts = 5; DailyMaxLossDollars = 1000; DailyProfitTargetDollars = 2000; LongStopLossTicks = 40; LongProfitTargetTicks = 80;
-				Print("[SMART AUTO-DETECTION] 100K Account detected. Configured 5 NQ, Max Loss -$1000, Target +$2000.");
 			}
-			else if (profileToApply == FundedAccountProfile.Account_150K)
+			else if (perfilAAplicar == PerfilCuentaEnterprise.Cuenta_150K)
 			{
 				Contracts = 15; DailyMaxLossDollars = 1500; DailyProfitTargetDollars = 3000; LongStopLossTicks = 103; LongProfitTargetTicks = 384;
-				Print("[SMART AUTO-DETECTION] 150K Account detected. Configured 15 NQ, Max Loss -$1500, Target +$3000.");
 			}
 		}
 
@@ -273,7 +275,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 			int timeNow = ToTime(Time[0]);
 			if (timeNow < StartTime || timeNow > EndTime)
 			{
-				Draw.TextFixed(this, "TimeProtection", "STATE: LOCKED BY PROTECTION (OUTSIDE HOURS 09:30-15:50)", TextPosition.TopRight, Brushes.Orange, new Gui.Tools.SimpleFont("Arial", 12), Brushes.Black, Brushes.DarkOrange, 90);
+				Draw.TextFixed(this, "TimeProtection", "ESTADO: BLOQUEADO POR PROTECCIÓN (FUERA DE HORARIO 09:30-15:50)", TextPosition.TopRight, Brushes.Orange, new Gui.Tools.SimpleFont("Arial", 12), Brushes.Black, Brushes.DarkOrange, 90);
 				return;
 			}
 			else
@@ -281,7 +283,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				RemoveDrawObject("TimeProtection");
 			}
 
-			// Funded Trailing Drawdown Guard
+			// Gestión de Trailing Drawdown de Fondeo en Posición Abierta
 			if (Position.MarketPosition != MarketPosition.Flat && UseFundedDrawdownGuard)
 			{
 				double unrealizedPnL = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency, Close[0]);
@@ -289,9 +291,9 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 				if (highestFloatingPeak > 300 && (highestFloatingPeak - unrealizedPnL) >= MaxFloatingGivebackDollars)
 				{
-					if (Position.MarketPosition == MarketPosition.Long) ExitLong("FundedGuard_Exit");
-					else if (Position.MarketPosition == MarketPosition.Short) ExitShort("FundedGuard_Exit");
-					Print("[FUNDED DRAWDOWN GUARD ACTIVATED] Protected floating profits from market retracement.");
+					if (Position.MarketPosition == MarketPosition.Long) ExitLong("EscudoFondeo_Exit");
+					else if (Position.MarketPosition == MarketPosition.Short) ExitShort("EscudoFondeo_Exit");
+					Print("[ESCUDO DE FONDEO ACTIVADO] Se aseguró la ganancia acumulada evitando retroceso violento.");
 				}
 			}
 		}
@@ -317,16 +319,16 @@ namespace NinjaTrader.NinjaScript.Strategies
 			};
 
 			StackPanel panel = new StackPanel();
-			panel.Children.Add(new TextBlock { Text = "FUTURES MARKET OPENING BOT v2", Foreground = Brushes.White, FontWeight = FontWeights.Bold, FontSize = 13, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 6) });
+			panel.Children.Add(new TextBlock { Text = "BOT DE APERTURA ENTERPRISE v2", Foreground = Brushes.White, FontWeight = FontWeights.Bold, FontSize = 14, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 6) });
 			
-			statusText = new TextBlock { Text = "STATE: ACTIVE / LIVE", Foreground = Brushes.LightGreen, FontWeight = FontWeights.SemiBold, FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 6) };
+			statusText = new TextBlock { Text = "ESTADO: ACTIVO / LIVE", Foreground = Brushes.LightGreen, FontWeight = FontWeights.SemiBold, FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 6) };
 			panel.Children.Add(statusText);
 
-			pnlText = new TextBlock { Text = "Realized PnL: $0.00 | Trades: 0", Foreground = Brushes.Cyan, FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 8) };
+			pnlText = new TextBlock { Text = "PnL Realizado: $0.00 | Trades: 0", Foreground = Brushes.Cyan, FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 8) };
 			panel.Children.Add(pnlText);
 
 			btnFlatten = new Button { Content = "🚨 FLATTEN & CANCEL ALL", Background = new SolidColorBrush(Color.FromRgb(239, 68, 68)), Foreground = Brushes.White, FontWeight = FontWeights.Bold, Height = 32, Margin = new Thickness(0, 3, 0, 3) };
-			btnFlatten.Click += (s, e) => { ExitLong(); ExitShort(); };
+			btnFlatten.Click += (s, e) => { FlattenAllAndCancelOrders(); };
 			panel.Children.Add(btnFlatten);
 
 			btnPause = new Button { Content = "⏸️ PAUSE BOT", Background = new SolidColorBrush(Color.FromRgb(249, 115, 22)), Foreground = Brushes.White, FontWeight = FontWeights.Bold, Height = 28, Margin = new Thickness(0, 2, 0, 2) };
@@ -339,6 +341,47 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 			hudBorder.Child = panel;
 			chartGrid.Children.Add(hudBorder);
+		}
+
+		private void FlattenAllAndCancelOrders()
+		{
+			try
+			{
+				if (Account != null && Account.Orders != null)
+				{
+					List<Order> workingOrders = new List<Order>();
+					foreach (Order o in Account.Orders)
+					{
+						if (o != null && (o.OrderState == OrderState.Working ||
+										  o.OrderState == OrderState.Submitted ||
+										  o.OrderState == OrderState.Accepted))
+						{
+							workingOrders.Add(o);
+						}
+					}
+					if (workingOrders.Count > 0)
+					{
+						Account.Cancel(workingOrders.ToArray());
+						Print("[BOT ENTERPRISE] Canceladas " + workingOrders.Count + " órdenes pendientes.");
+					}
+				}
+
+				if (Position != null && Position.MarketPosition != MarketPosition.Flat)
+				{
+					ExitLong();
+					ExitShort();
+
+					if (Account != null && Instrument != null)
+					{
+						Account.Flatten(new[] { Instrument });
+					}
+					Print("[BOT ENTERPRISE] Posición liquidada completamente.");
+				}
+			}
+			catch (Exception ex)
+			{
+				Print("[BOT ENTERPRISE FLATTEN ERROR] " + ex.Message);
+			}
 		}
 
 		private void DisposeWpfHudPanel()

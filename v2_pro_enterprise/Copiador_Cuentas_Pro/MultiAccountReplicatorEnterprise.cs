@@ -22,36 +22,37 @@ using NinjaTrader.Core.FloatingPoint;
 namespace NinjaTrader.NinjaScript.Strategies
 {
 	/// <summary>
-	/// Enterprise Multi-Account Futures Replicator v2 with Slippage Shield, Latency Watchdog, and Account Auto-Detection.
+	/// Replicador Multicuenta Enterprise v2 con Escudo de Deslizamiento, Filtro de Latencia y Auto-Detección.
 	/// </summary>
-	public class MultiAccountReplicatorEnterprise : Strategy
+	public class ReplicadorMulticuentaEnterprise : Strategy
 	{
 		private List<Account> slaveAccountsList = new List<Account>();
 		private bool isReplicationActive = true;
+		private HashSet<string> processedOrderHashes = new HashSet<string>();
 
-		// WPF HUD Elements
+		// Elementos WPF HUD
 		private Grid chartGrid;
 		private Border hudBorder;
 
-		#region Properties - Enterprise Replicator Configuration
+		#region Properties - Configuración Copiador Enterprise
 		[NinjaScriptProperty]
-		[Display(Name = "Enable Replicator", Order = 1, GroupName = "1. Enterprise Replicator Config")]
+		[Display(Name = "Activar Copiador", Order = 1, GroupName = "1. Configuración Copiador Enterprise")]
 		public bool CopierEnabled { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Master Account Name", Order = 2, GroupName = "1. Enterprise Replicator Config")]
+		[Display(Name = "Cuenta Maestra", Order = 2, GroupName = "1. Configuración Copiador Enterprise")]
 		public string MasterAccountName { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Slave Account Names (AUTO for Auto-Detection)", Order = 3, GroupName = "1. Enterprise Replicator Config")]
+		[Display(Name = "Cuentas Esclavas (AUTO para auto-detección)", Order = 3, GroupName = "1. Configuración Copiador Enterprise")]
 		public string SlaveAccountNames { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Max Allowed Slippage (Ticks)", Description = "Rejects order copy if price variance exceeds this threshold.", Order = 4, GroupName = "1. Enterprise Replicator Config")]
+		[Display(Name = "Deslizamiento Máximo Permitido (Ticks)", Description = "Cancela la copia si la variación de precio supera este umbral.", Order = 4, GroupName = "1. Configuración Copiador Enterprise")]
 		public int MaxSlippageTicks { get; set; }
 
 		[NinjaScriptProperty]
-		[Display(Name = "Fail-Safe Auto-Flatten on Disconnect", Order = 5, GroupName = "1. Enterprise Replicator Config")]
+		[Display(Name = "Protección Fail-Safe por Desconexión", Order = 5, GroupName = "1. Configuración Copiador Enterprise")]
 		public bool AutoFlattenOnDisconnect { get; set; }
 		#endregion
 
@@ -59,8 +60,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 		{
 			if (State == State.SetDefaults)
 			{
-				Description							= "Enterprise Multi-Account Futures Replicator v2 with Slippage Shield and Latency Watchdog.";
-				Name								= "MultiAccountReplicatorEnterprise";
+				Description							= "Replicador Multicuenta Enterprise v2 con Escudo Antiduplicidad y Slippage Guard.";
+				Name								= "ReplicadorMulticuentaEnterprise";
 				Calculate							= Calculate.OnPriceChange;
 
 				CopierEnabled						= true;
@@ -75,14 +76,14 @@ namespace NinjaTrader.NinjaScript.Strategies
 			}
 			else if (State == State.Historical)
 			{
-				if (ChartControl != null)
+				if (ChartControl != null && ChartControl.Dispatcher != null)
 				{
 					ChartControl.Dispatcher.InvokeAsync(() => { CreateWpfHudPanel(); });
 				}
 			}
 			else if (State == State.Terminated)
 			{
-				if (ChartControl != null)
+				if (ChartControl != null && ChartControl.Dispatcher != null)
 				{
 					ChartControl.Dispatcher.InvokeAsync(() => { DisposeWpfHudPanel(); });
 				}
@@ -92,19 +93,22 @@ namespace NinjaTrader.NinjaScript.Strategies
 		private void InitializeSlaveAccounts()
 		{
 			slaveAccountsList.Clear();
-			lock (Account.All)
+			if (Account.All != null)
 			{
-				bool isAuto = string.IsNullOrWhiteSpace(SlaveAccountNames) || SlaveAccountNames.Trim().Equals("AUTO", StringComparison.OrdinalIgnoreCase);
-				string[] configuredSlaves = SlaveAccountNames.Split(',');
-
-				foreach (Account acc in Account.All)
+				lock (Account.All)
 				{
-					if (acc.Name.Equals(MasterAccountName, StringComparison.OrdinalIgnoreCase)) continue;
+					bool isAuto = string.IsNullOrWhiteSpace(SlaveAccountNames) || SlaveAccountNames.Trim().Equals("AUTO", StringComparison.OrdinalIgnoreCase);
+					string[] configuredSlaves = (SlaveAccountNames ?? "").Split(',');
+
+					foreach (Account acc in Account.All)
+					{
+						if (acc == null || string.IsNullOrEmpty(acc.Name)) continue;
+						if (acc.Name.Equals(MasterAccountName, StringComparison.OrdinalIgnoreCase)) continue;
 
 					if (isAuto)
 					{
 						slaveAccountsList.Add(acc);
-						Print("[ENTERPRISE REPLICATOR] Auto-detected slave account: " + acc.Name);
+						Print("[REPLICADOR ENTERPRISE] Cuenta esclava auto-detectada: " + acc.Name);
 					}
 					else
 					{
@@ -113,11 +117,12 @@ namespace NinjaTrader.NinjaScript.Strategies
 							if (acc.Name.Trim().Equals(targetName.Trim(), StringComparison.OrdinalIgnoreCase))
 							{
 								slaveAccountsList.Add(acc);
-								Print("[ENTERPRISE REPLICATOR] Bound slave account: " + acc.Name);
+								Print("[REPLICADOR ENTERPRISE] Cuenta esclava vinculada: " + acc.Name);
 							}
 						}
 					}
 				}
+			}
 			}
 		}
 
@@ -142,8 +147,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 			};
 
 			StackPanel panel = new StackPanel();
-			panel.Children.Add(new TextBlock { Text = "⚡ ENTERPRISE MULTI-ACCOUNT REPLICATOR v2", Foreground = Brushes.White, FontWeight = FontWeights.Bold, FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 6) });
-			panel.Children.Add(new TextBlock { Text = "STATE: ACTIVE / SYNCHRONIZED", Foreground = Brushes.LightGreen, FontWeight = FontWeights.SemiBold, FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 8) });
+			panel.Children.Add(new TextBlock { Text = "⚡ REPLICADOR ENTERPRISE v2", Foreground = Brushes.White, FontWeight = FontWeights.Bold, FontSize = 14, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 6) });
+			panel.Children.Add(new TextBlock { Text = "ESTADO: ACTIVO / SINCRONIZADO", Foreground = Brushes.LightGreen, FontWeight = FontWeights.SemiBold, FontSize = 12, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 8) });
 
 			Button btnFlattenSlaves = new Button { Content = "🚨 FLATTEN ALL SLAVES & PAUSE", Background = new SolidColorBrush(Color.FromRgb(239, 68, 68)), Foreground = Brushes.White, FontWeight = FontWeights.Bold, Height = 32, Margin = new Thickness(0, 3, 0, 3) };
 			btnFlattenSlaves.Click += (s, e) => { FlattenAllSlaveAccounts(); };
@@ -164,24 +169,58 @@ namespace NinjaTrader.NinjaScript.Strategies
 
 		private void FlattenAllSlaveAccounts()
 		{
-			lock (Account.All)
+			isReplicationActive = false;
+			if (Account.All != null)
 			{
-				foreach (Account slaveAcc in slaveAccountsList)
+				lock (Account.All)
 				{
-					try
+					foreach (Account slaveAcc in slaveAccountsList)
 					{
-						foreach (Order o in slaveAcc.Orders)
+						if (slaveAcc == null) continue;
+						try
 						{
-							if (o.OrderState == OrderState.Working || o.OrderState == OrderState.Submitted)
+							// 1. Cancelar todas las órdenes pendientes en la cuenta esclava
+							if (slaveAcc.Orders != null)
 							{
-								slaveAcc.Cancel(new[] { o });
+								List<Order> workingOrders = new List<Order>();
+								foreach (Order o in slaveAcc.Orders)
+								{
+									if (o != null && (o.OrderState == OrderState.Working ||
+													  o.OrderState == OrderState.Submitted ||
+													  o.OrderState == OrderState.Accepted))
+									{
+										workingOrders.Add(o);
+									}
+								}
+								if (workingOrders.Count > 0)
+								{
+									slaveAcc.Cancel(workingOrders.ToArray());
+									Print("[REPLICADOR ENTERPRISE] Canceladas " + workingOrders.Count + " órdenes pendientes en: " + slaveAcc.Name);
+								}
+							}
+
+							// 2. Liquidar de forma nativa todas las posiciones abiertas en la cuenta esclava
+							if (slaveAcc.Positions != null)
+							{
+								List<Instrument> activeInstruments = new List<Instrument>();
+								foreach (Position pos in slaveAcc.Positions)
+								{
+									if (pos != null && pos.MarketPosition != MarketPosition.Flat && pos.Quantity > 0)
+									{
+										activeInstruments.Add(pos.Instrument);
+									}
+								}
+								if (activeInstruments.Count > 0)
+								{
+									slaveAcc.Flatten(activeInstruments.ToArray());
+									Print("[REPLICADOR ENTERPRISE NATIVO] Posiciones liquidadas en: " + slaveAcc.Name);
+								}
 							}
 						}
-						Print("[ENTERPRISE REPLICATOR] Flatten executed for slave account: " + slaveAcc.Name);
-					}
-					catch (Exception ex)
-					{
-						Print("[ERROR FLATTEN SLAVE] " + slaveAcc.Name + ": " + ex.Message);
+						catch (Exception ex)
+						{
+							Print("[ERROR FLATTEN] " + slaveAcc.Name + ": " + ex.Message);
+						}
 					}
 				}
 			}

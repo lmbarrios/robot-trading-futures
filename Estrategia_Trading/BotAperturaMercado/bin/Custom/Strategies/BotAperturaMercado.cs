@@ -940,12 +940,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Cursor = Cursors.Hand
                 };
                 btnFlatten.Click += (s, e) => {
-                    try {
-                        if (Position != null && Position.MarketPosition != MarketPosition.Flat) {
-                            if (Position.MarketPosition == MarketPosition.Long) ExitLong("BAM_L");
-                            else if (Position.MarketPosition == MarketPosition.Short) ExitShort("BAM_S");
-                        }
-                    } catch {}
+                    BAM_EjecutarFlattenYCancelarTodo();
                 };
                 Grid.SetColumn(btnFlatten, 0);
 
@@ -1154,6 +1149,56 @@ namespace NinjaTrader.NinjaScript.Strategies
                         }
                     }
                 }), DispatcherPriority.Background);
+            }
+        }
+        private void BAM_EjecutarFlattenYCancelarTodo()
+        {
+            try
+            {
+                // 1. Cancelar todas las ordenes pendientes (Limit/Stop entries o exits) asociadas a la cuenta
+                if (Account != null && Account.Orders != null)
+                {
+                    List<Order> workingOrders = new List<Order>();
+                    foreach (Order o in Account.Orders)
+                    {
+                        if (o != null && (o.OrderState == OrderState.Working ||
+                                          o.OrderState == OrderState.Submitted ||
+                                          o.OrderState == OrderState.Accepted))
+                        {
+                            workingOrders.Add(o);
+                        }
+                    }
+                    if (workingOrders.Count > 0)
+                    {
+                        Account.Cancel(workingOrders.ToArray());
+                        Print("[BAM FLATTEN] Canceladas " + workingOrders.Count + " ordenes pendientes.");
+                    }
+                }
+
+                // 2. Liquidar de forma nativa cualquier posicion abierta (Long o Short)
+                if (Position != null && Position.MarketPosition != MarketPosition.Flat)
+                {
+                    if (Position.MarketPosition == MarketPosition.Long)
+                    {
+                        ExitLong();
+                        ExitLong("BAM_L");
+                    }
+                    else if (Position.MarketPosition == MarketPosition.Short)
+                    {
+                        ExitShort();
+                        ExitShort("BAM_S");
+                    }
+
+                    if (Account != null && Instrument != null)
+                    {
+                        Account.Flatten(new[] { Instrument });
+                    }
+                    Print("[BAM FLATTEN] Posicion liquidada completamente.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Print("[BAM Flatten ERROR] " + ex.Message);
             }
         }
         #endregion
