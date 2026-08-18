@@ -885,6 +885,15 @@ namespace NinjaTrader.NinjaScript.Strategies
         {
             try
             {
+                bsc_lock = true;
+                isPaused = true;
+
+                if (statusText != null)
+                {
+                    statusText.Text = "STATE: FLATTENED & PAUSED";
+                    statusText.Foreground = HexColor("#EF4444");
+                }
+
                 if (Account != null && Account.Orders != null)
                 {
                     List<Order> workingOrders = new List<Order>();
@@ -903,7 +912,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (Account != null && Instrument != null) Account.Flatten(new[] { Instrument });
                 }
             }
-            catch {}
+            catch (Exception ex)
+            {
+                Print("[BSC FLATTEN ERROR] " + ex.Message);
+            }
         }
         #endregion
     }
