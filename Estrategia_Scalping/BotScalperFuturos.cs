@@ -466,9 +466,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (perfil == BSC_PerfilCuenta.Cuenta_50K)
                 { BSC_Contratos = 1; BSC_PerdMax = 150; BSC_GanObj = 300; BSC_SL = 8; BSC_TP = 12; }
                 else if (perfil == BSC_PerfilCuenta.Cuenta_100K)
-                { BSC_Contratos = 2; BSC_PerdMax = 300; BSC_GanObj = 600; BSC_SL = 10; BSC_TP = 16; }
+                { BSC_Contratos = 2; BSC_PerdMax = 300; BSC_GanObj = 600; BSC_SL = 8; BSC_TP = 12; }
                 else if (perfil == BSC_PerfilCuenta.Cuenta_150K)
-                { BSC_Contratos = 3; BSC_PerdMax = 450; BSC_GanObj = 900; BSC_SL = 12; BSC_TP = 20; }
+                { BSC_Contratos = 3; BSC_PerdMax = 450; BSC_GanObj = 900; BSC_SL = 8; BSC_TP = 12; }
             }
             catch {}
         }
