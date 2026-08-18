@@ -256,12 +256,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                     BAM_CuerpoMin = 4;
                     BAM_CuerpoMax = 40;
                     BAM_HrIn      = 93000;
-                    BAM_HrFin     = 155000;
+                    BAM_HrFin     = 101500;
                     BAM_CerrarFin = true;
                     BAM_LimitePnL = true;
                     BAM_PerdMax   = 500;
                     BAM_GanObj    = 1000;
-                    BAM_MaxTrades = 5;
+                    BAM_MaxTrades = 2;
                     BAM_UsarProfitLock = true; // Escalera de proteccion activada
                     BAM_UsarEscudoFondeo = true;
                     BAM_PicoMinimoEscudo = 300;
@@ -610,12 +610,18 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Print("[BAM AUTO-DETECCION] Perfil detectado: " + perfilAAplicar + " (Saldo: $" + cash.ToString("N0") + ", Cuenta: " + name + ")");
                 }
 
-                if (perfilAAplicar == BAM_PerfilCuenta.Cuenta_50K)
-                { BAM_Contratos = 2; BAM_PerdMax = 500; BAM_GanObj = 1000; BAM_SLL = 30; BAM_SLS = 30; BAM_TPL = 60; BAM_TPS = 60; }
+                bool isMnq = (Instrument != null && (Instrument.MasterInstrument.Name.Contains("MNQ") || Instrument.MasterInstrument.Name.Contains("NQ")));
+
+                if (isMnq || BAM_Contratos >= 5)
+                {
+                    BAM_Contratos = 10; BAM_PerdMax = 500; BAM_GanObj = 1000; BAM_SLL = 40; BAM_SLS = 40; BAM_TPL = 80; BAM_TPS = 80; BAM_MaxTrades = 2;
+                }
+                else if (perfilAAplicar == BAM_PerfilCuenta.Cuenta_50K)
+                { BAM_Contratos = 5; BAM_PerdMax = 300; BAM_GanObj = 600; BAM_SLL = 30; BAM_SLS = 30; BAM_TPL = 60; BAM_TPS = 60; BAM_MaxTrades = 2; }
                 else if (perfilAAplicar == BAM_PerfilCuenta.Cuenta_100K)
-                { BAM_Contratos = 5; BAM_PerdMax = 1000; BAM_GanObj = 2000; BAM_SLL = 40; BAM_SLS = 40; BAM_TPL = 80; BAM_TPS = 80; }
+                { BAM_Contratos = 10; BAM_PerdMax = 500; BAM_GanObj = 1000; BAM_SLL = 40; BAM_SLS = 40; BAM_TPL = 80; BAM_TPS = 80; BAM_MaxTrades = 2; }
                 else if (perfilAAplicar == BAM_PerfilCuenta.Cuenta_150K)
-                { BAM_Contratos = 15; BAM_PerdMax = 1500; BAM_GanObj = 3000; BAM_SLL = 103; BAM_SLS = 103; BAM_TPL = 384; BAM_TPS = 384; }
+                { BAM_Contratos = 15; BAM_PerdMax = 750; BAM_GanObj = 1500; BAM_SLL = 40; BAM_SLS = 40; BAM_TPL = 80; BAM_TPS = 80; BAM_MaxTrades = 2; }
             }
             catch (Exception ex)
             {
