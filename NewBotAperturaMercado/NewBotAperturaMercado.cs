@@ -309,6 +309,16 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
         }
 
+        #region Helper Método de Tiempo
+        private TimeSpan ParseTimeInt(int timeInt)
+        {
+            int hours = timeInt / 10000;
+            int minutes = (timeInt % 10000) / 100;
+            int seconds = timeInt % 100;
+            return new TimeSpan(hours, minutes, seconds);
+        }
+        #endregion
+
         #region Aplicación de Perfil de Cuenta & Actualización UI Dinámica
         public void AplicarPerfilCuenta(AccountProfileEnum profile)
         {
@@ -323,6 +333,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Stage2Trigger = 500;  Stage2Secure = 410;
                     Stage3Trigger = 575;  Stage3Secure = 525;
                     Stage4Trigger = 900;  Stage4Secure = 800;
+                    LossCutDollars = 70;
                     break;
 
                 case AccountProfileEnum.Profile50K:
@@ -333,6 +344,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Stage2Trigger = 1000; Stage2Secure = 820;
                     Stage3Trigger = 1150; Stage3Secure = 1050;
                     Stage4Trigger = 1800; Stage4Secure = 1600;
+                    LossCutDollars = 150;
                     break;
 
                 case AccountProfileEnum.Profile100K:
@@ -343,6 +355,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Stage2Trigger = 1500; Stage2Secure = 1230;
                     Stage3Trigger = 1725; Stage3Secure = 1575;
                     Stage4Trigger = 2700; Stage4Secure = 2400;
+                    LossCutDollars = 220;
                     break;
 
                 case AccountProfileEnum.Profile150K:
@@ -353,6 +366,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Stage2Trigger = 2000; Stage2Secure = 1640;
                     Stage3Trigger = 2300; Stage3Secure = 2100;
                     Stage4Trigger = 3600; Stage4Secure = 3200;
+                    LossCutDollars = 300;
                     break;
 
                 case AccountProfileEnum.Custom:
@@ -361,7 +375,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
 
             ActualizarUIValoresPerfil();
-            AppendLog($"[EXEC] Perfil aplicado: {profile} | Contratos: {Contracts} | Riesgo: ${DailyMaxLossDollars} | Target: ${DailyProfitTargetDollars} | Profit Lock S1: ${Stage1Trigger}/${Stage1Secure}");
+            AppendLog($"[EXEC] Perfil aplicado: {profile} | Contratos: {Contracts} | Riesgo: ${DailyMaxLossDollars} | Target: ${DailyProfitTargetDollars} | Loss Cut: ${LossCutDollars}");
         }
 
         public void RecalcularValoresProporcionales(int numContracts)
@@ -383,6 +397,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             Stage4Trigger = Math.Round(1800.0 * factor);
             Stage4Secure  = Math.Round(1600.0 * factor);
+
+            LossCutDollars = Math.Round(150.0 * factor);
         }
 
         private void ActualizarUIValoresPerfil()
@@ -443,7 +459,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 return;
 
             DateTime timeNow = Time[0];
-            int intTime = ToTime(timeNow);
+            TimeSpan barTimeSpan = timeNow.TimeOfDay;
 
             if (timeNow.Date != currentTradeDate)
             {
@@ -464,12 +480,15 @@ namespace NinjaTrader.NinjaScript.Strategies
                 AppendLog($"[INFO] Nuevo día de trading iniciado: {currentTradeDate:yyyy-MM-dd}");
             }
 
-            if (intTime >= PreRangeStartTime && intTime <= PreRangeEndTime)
+            TimeSpan preStart = ParseTimeInt(PreRangeStartTime);
+            TimeSpan preEnd = ParseTimeInt(PreRangeEndTime);
+
+            if (barTimeSpan >= preStart && barTimeSpan <= preEnd)
             {
                 preEntryHigh = Math.Max(preEntryHigh, High[0]);
                 preEntryLow = Math.Min(preEntryLow, Low[0]);
             }
-            else if (intTime > PreRangeEndTime && !rangeCalculatedToday && preEntryHigh > double.MinValue && preEntryLow < double.MaxValue)
+            else if (barTimeSpan > preEnd && !rangeCalculatedToday && preEntryHigh > double.MinValue && preEntryLow < double.MaxValue)
             {
                 rangeCalculatedToday = true;
                 resolvedRangePoints = preEntryHigh - preEntryLow;
@@ -487,7 +506,8 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             if (State == State.Realtime) ActualizarTelemetriaUI();
 
-            if (intTime >= ForceFlatTimeNY && Position.MarketPosition != MarketPosition.Flat)
+            TimeSpan forceFlatSpan = ParseTimeInt(ForceFlatTimeNY);
+            if (barTimeSpan >= forceFlatSpan && Position.MarketPosition != MarketPosition.Flat)
             {
                 EjecutarFlattenYCancelarTodo();
                 AppendLog("[RISK] Cierre forzoso ejecutado por horario 15:50:00 NY.");
@@ -501,7 +521,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                 return;
             }
 
-            if (!isEntryTriggeredToday && intTime >= TimedEntryTimeNY && intTime <= (TimedEntryTimeNY + EntryWindowSeconds))
+            TimeSpan entryStartSpan = ParseTimeInt(TimedEntryTimeNY);
+            TimeSpan entryEndSpan = entryStartSpan.Add(TimeSpan.FromSeconds(EntryWindowSeconds + 5));
+
+            if (!isEntryTriggeredToday && barTimeSpan >= entryStartSpan && barTimeSpan <= entryEndSpan)
             {
                 if (Position.MarketPosition == MarketPosition.Flat)
                 {
@@ -540,7 +563,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 double elapsedSeconds = (DateTime.Now - entryTimestamp).TotalSeconds;
 
                 // Evaluación Timed Cut a los N segundos (default 7.5s)
-                if (TimedCutArmed && !timedCutEvaluatedToday && elapsedSeconds >= EvaluationSec)
+                if (TimedCutArmed && !timedCutEvaluatedToday && (elapsedSeconds >= EvaluationSec || barsInPosition >= 1))
                 {
                     timedCutEvaluatedToday = true;
                     AppendLog($"[TIMED CUT EVALUATION] Evaluando operación a los {elapsedSeconds:F1}s | PnL Abierto: ${openProfitDollars:N2} | Rango: {resolvedRangePoints:F1} pts (Máx: {TimedRangeMax} pts)");
@@ -780,7 +803,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     {
                         RecalcularValoresProporcionales(val);
                         ActualizarUIValoresPerfil();
-                        AppendLog($"[CUSTOM] Recálculo para {Contracts} contratos -> Riesgo: ${DailyMaxLossDollars} | Target: ${DailyProfitTargetDollars}");
+                        AppendLog($"[CUSTOM] Recálculo para {Contracts} contratos -> Riesgo: ${DailyMaxLossDollars} | Target: ${DailyProfitTargetDollars} | Loss Cut: ${LossCutDollars}");
                     }
                 };
                 Grid.SetColumn(lblCont, 0); Grid.SetColumn(txtContractsUI, 1);
