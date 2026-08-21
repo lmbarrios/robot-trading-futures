@@ -161,10 +161,6 @@ namespace NinjaTrader.NinjaScript.Strategies
         [NinjaScriptProperty]
         [Display(Name = "Umbral de Rango (Puntos)", Order = 3, GroupName = "3. Rango Pre-Apertura")]
         public double RangeThresholdPoints { get; set; }
-
-        [NinjaScriptProperty]
-        [Display(Name = "Activar Filtro Tendencia (EMA 9/21)", Order = 4, GroupName = "3. Rango Pre-Apertura")]
-        public bool UseTrendFilter { get; set; }
         #endregion
 
         #region 4. Gestión de Riesgo & Profit Lock (4 Stages)
@@ -540,37 +536,28 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (DirectionRule == TradeDirectionMode.Auto)
                 {
                     double midPoint = (preEntryHigh + preEntryLow) / 2;
-                    bool emaBullish = (Close[0] > emaFast[0] && emaFast[0] > emaMid[0]);
-                    bool emaBearish = (Close[0] < emaFast[0] && emaFast[0] < emaMid[0]);
 
-                    if (UseTrendFilter)
+                    // Strict Trend Alignment Filter: EMA 9 must be aligned with EMA 21
+                    bool strictBullish = (emaFast[0] > emaMid[0] && Close[0] > emaFast[0]);
+                    bool strictBearish = (emaFast[0] < emaMid[0] && Close[0] < emaFast[0]);
+
+                    if (Close[0] >= midPoint && strictBullish)
                     {
-                        // Strict Trend Alignment Filter: EMA 9 must be aligned with EMA 21
-                        bool strictBullish = (emaFast[0] > emaMid[0] && Close[0] > emaFast[0]);
-                        bool strictBearish = (emaFast[0] < emaMid[0] && Close[0] < emaFast[0]);
-
-                        if (Close[0] >= midPoint && strictBullish)
-                        {
-                            resolvedDirection = "LONG";
-                        }
-                        else if (Close[0] < midPoint && strictBearish)
-                        {
-                            resolvedDirection = "SHORT";
-                        }
-                        else
-                        {
-                            resolvedDirection = "NONE";
-                        }
+                        resolvedDirection = "LONG";
+                    }
+                    else if (Close[0] < midPoint && strictBearish)
+                    {
+                        resolvedDirection = "SHORT";
                     }
                     else
                     {
-                        resolvedDirection = (Close[0] >= midPoint) ? "LONG" : "SHORT";
+                        resolvedDirection = "NONE";
                     }
                 }
                 else if (DirectionRule == TradeDirectionMode.LongOnly) resolvedDirection = "LONG";
                 else if (DirectionRule == TradeDirectionMode.ShortOnly) resolvedDirection = "SHORT";
 
-                AppendLog($"[RANGE GUARD V2] Rango resuelto: {resolvedRangePoints:F2} pts (Umbral: {RangeThresholdPoints} pts) -> Dirección: {resolvedDirection} (Filtro EMA: {(UseTrendFilter ? "ON" : "OFF")})");
+                AppendLog($"[RANGE GUARD V2] Rango resuelto: {resolvedRangePoints:F2} pts (Umbral: {RangeThresholdPoints} pts) -> Dirección AUTO: {resolvedDirection}");
                 ActualizarPreRangoUI();
             }
 
