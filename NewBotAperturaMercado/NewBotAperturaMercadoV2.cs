@@ -161,6 +161,10 @@ namespace NinjaTrader.NinjaScript.Strategies
         [NinjaScriptProperty]
         [Display(Name = "Umbral de Rango (Puntos)", Order = 3, GroupName = "3. Rango Pre-Apertura")]
         public double RangeThresholdPoints { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Activar Filtro Tendencia (EMA 9/21)", Order = 4, GroupName = "3. Rango Pre-Apertura")]
+        public bool UseTrendFilter { get; set; }
         #endregion
 
         #region 4. Gestión de Riesgo & Profit Lock (4 Stages)
@@ -290,6 +294,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 PreRangeStartTime = 90000;
                 PreRangeEndTime = 92859;
                 RangeThresholdPoints = 50.0;
+                UseTrendFilter = true;
 
                 StopLossTicks = 133;
                 ProfitTargetTicks = 334;
@@ -534,12 +539,34 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                 if (DirectionRule == TradeDirectionMode.Auto)
                 {
-                    resolvedDirection = (Close[0] >= (preEntryHigh + preEntryLow) / 2) ? "LONG" : "SHORT";
+                    double midPoint = (preEntryHigh + preEntryLow) / 2;
+                    bool emaBullish = (Close[0] > emaFast[0] && emaFast[0] > emaMid[0]);
+                    bool emaBearish = (Close[0] < emaFast[0] && emaFast[0] < emaMid[0]);
+
+                    if (UseTrendFilter)
+                    {
+                        if (Close[0] >= midPoint && (emaBullish || Close[0] > emaFast[0]))
+                        {
+                            resolvedDirection = "LONG";
+                        }
+                        else if (Close[0] < midPoint && (emaBearish || Close[0] < emaFast[0]))
+                        {
+                            resolvedDirection = "SHORT";
+                        }
+                        else
+                        {
+                            resolvedDirection = "NONE";
+                        }
+                    }
+                    else
+                    {
+                        resolvedDirection = (Close[0] >= midPoint) ? "LONG" : "SHORT";
+                    }
                 }
                 else if (DirectionRule == TradeDirectionMode.LongOnly) resolvedDirection = "LONG";
                 else if (DirectionRule == TradeDirectionMode.ShortOnly) resolvedDirection = "SHORT";
 
-                AppendLog($"[RANGE GUARD V2] Rango resuelto: {resolvedRangePoints:F2} pts (Umbral: {RangeThresholdPoints} pts) -> Dirección: {resolvedDirection}");
+                AppendLog($"[RANGE GUARD V2] Rango resuelto: {resolvedRangePoints:F2} pts (Umbral: {RangeThresholdPoints} pts) -> Dirección: {resolvedDirection} (Filtro EMA: {(UseTrendFilter ? "ON" : "OFF")})");
                 ActualizarPreRangoUI();
             }
 
@@ -568,10 +595,16 @@ namespace NinjaTrader.NinjaScript.Strategies
                 if (Position.MarketPosition == MarketPosition.Flat)
                 {
                     isEntryTriggeredToday = true;
-                    entryTimestamp = DateTime.Now;
+                    entryTimestamp = Time[0];
                     timedCutEvaluatedToday = false;
 
                     string dir = (DirectionRule == TradeDirectionMode.Auto) ? resolvedDirection : DirectionRule.ToString().Replace("Only", "").ToUpper();
+
+                    if (dir == "NONE")
+                    {
+                        AppendLog($"[TREND FILTER V2] 🛑 Conflicto entre Rango Pre-Apertura y EMAs (9/21). Entrada cancelada hoy para evitar perdidas en mercado sucio.");
+                        return;
+                    }
 
                     if (dir == "LONG" || dir == "BOTH")
                     {
@@ -599,7 +632,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 barsInPosition++;
                 double openProfitDollars = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency, Close[0]);
-                double elapsedSeconds = (DateTime.Now - entryTimestamp).TotalSeconds;
+                double elapsedSeconds = (Time[0] - entryTimestamp).TotalSeconds;
 
                 // Evaluación Timed Cut a los N segundos (default 7.5s)
                 if (TimedCutArmed && !timedCutEvaluatedToday && (elapsedSeconds >= EvaluationSec || barsInPosition >= 1))
@@ -667,7 +700,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (SystemPerformance != null && SystemPerformance.AllTrades != null && SystemPerformance.AllTrades.Count > 0)
             {
                 Trade lastTrade = SystemPerformance.AllTrades[SystemPerformance.AllTrades.Count - 1];
-                if (lastTrade != null && execution.Order != null && execution.Order.OrderState == OrderState.Filled)
+                if (lastTrade != null && lastTrade.Exit != null && execution.ExecutionId == lastTrade.Exit.Execution.ExecutionId)
                 {
                     double pnl = lastTrade.ProfitCurrency;
                     dailyCumProfit += pnl;
@@ -686,6 +719,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     {
                         rocketExecutedToday = true;
                         isRocketTradeActive = true;
+                        currentLockStage = 0;
 
                         MarketPosition lastPos = lastTrade.Entry.MarketPosition;
                         string lastDirStr = (lastPos == MarketPosition.Long) ? "LONG" : "SHORT";
@@ -746,7 +780,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                             EnterLong(Contracts, "BotApertura_Rocket_Long");
                             tradesTodayCount++;
                             barsInPosition = 0;
-                            entryTimestamp = DateTime.Now;
+                            entryTimestamp = Time[0];
                             ActualizarRocketStatusUI($"🚀 COHETE LONG @ {Close[0]} (Modo: {RocketMode})");
                             AppendLog($"[🚀 COHETE V2] GATILLAZO INMEDIATO LONG ({Contracts} cont.) @ {Close[0]} | Modo: {RocketMode} | Mecha Inf: {lowerWickPct:F1}% | EMA Bull: {emaBullish}");
                         }
@@ -757,7 +791,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                             EnterShort(Contracts, "BotApertura_Rocket_Short");
                             tradesTodayCount++;
                             barsInPosition = 0;
-                            entryTimestamp = DateTime.Now;
+                            entryTimestamp = Time[0];
                             ActualizarRocketStatusUI($"🚀 COHETE SHORT @ {Close[0]} (Modo: {RocketMode})");
                             AppendLog($"[🚀 COHETE V2] GATILLAZO INMEDIATO SHORT ({Contracts} cont.) @ {Close[0]} | Modo: {RocketMode} | Mecha Sup: {upperWickPct:F1}% | EMA Bear: {emaBearish}");
                         }
