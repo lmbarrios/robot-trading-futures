@@ -545,11 +545,15 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                     if (UseTrendFilter)
                     {
-                        if (Close[0] >= midPoint && (emaBullish || Close[0] > emaFast[0]))
+                        // Strict Trend Alignment Filter: EMA 9 must be aligned with EMA 21
+                        bool strictBullish = (emaFast[0] > emaMid[0] && Close[0] > emaFast[0]);
+                        bool strictBearish = (emaFast[0] < emaMid[0] && Close[0] < emaFast[0]);
+
+                        if (Close[0] >= midPoint && strictBullish)
                         {
                             resolvedDirection = "LONG";
                         }
-                        else if (Close[0] < midPoint && (emaBearish || Close[0] < emaFast[0]))
+                        else if (Close[0] < midPoint && strictBearish)
                         {
                             resolvedDirection = "SHORT";
                         }
