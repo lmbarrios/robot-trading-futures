@@ -264,7 +264,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 TimedCutArmed = true;
                 TimedRangeMax = 37.5;
                 EvaluationSec = 7.5;
-                LossCutDollars = 150.0;
+                LossCutDollars = 300.0;
             }
             else if (State == State.Configure)
             {
@@ -316,7 +316,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Stage2Trigger = 500;  Stage2Secure = 410;
                     Stage3Trigger = 575;  Stage3Secure = 525;
                     Stage4Trigger = 900;  Stage4Secure = 800;
-                    LossCutDollars = 70;
+                    LossCutDollars = 150;
                     break;
 
                 case AccountProfileEnum.Profile50K:
@@ -327,7 +327,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Stage2Trigger = 1000; Stage2Secure = 820;
                     Stage3Trigger = 1150; Stage3Secure = 1050;
                     Stage4Trigger = 1800; Stage4Secure = 1600;
-                    LossCutDollars = 150;
+                    LossCutDollars = 300;
                     break;
 
                 case AccountProfileEnum.Profile100K:
@@ -338,7 +338,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Stage2Trigger = 1500; Stage2Secure = 1230;
                     Stage3Trigger = 1725; Stage3Secure = 1575;
                     Stage4Trigger = 2700; Stage4Secure = 2400;
-                    LossCutDollars = 220;
+                    LossCutDollars = 450;
                     break;
 
                 case AccountProfileEnum.Profile150K:
@@ -349,7 +349,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     Stage2Trigger = 2000; Stage2Secure = 1640;
                     Stage3Trigger = 2300; Stage3Secure = 2100;
                     Stage4Trigger = 3600; Stage4Secure = 3200;
-                    LossCutDollars = 300;
+                    LossCutDollars = 600;
                     break;
 
                 case AccountProfileEnum.Custom:
@@ -381,7 +381,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             Stage4Trigger = Math.Round(1800.0 * factor);
             Stage4Secure  = Math.Round(1600.0 * factor);
 
-            LossCutDollars = Math.Round(150.0 * factor);
+            LossCutDollars = Math.Round(300.0 * factor);
         }
 
         private void ActualizarUIValoresPerfil()
