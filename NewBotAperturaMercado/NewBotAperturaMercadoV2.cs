@@ -24,6 +24,14 @@ using NinjaTrader.NinjaScript.DrawingTools;
 
 namespace NinjaTrader.NinjaScript.Strategies
 {
+    public enum RocketRecoveryModeEnum
+    {
+        Disabled,
+        SameDirection,
+        ReverseDirection,
+        AutoSmartFilter
+    }
+
     public class NewBotAperturaMercadoV2 : Strategy
     {
         #region Private Fields
@@ -40,6 +48,10 @@ namespace NinjaTrader.NinjaScript.Strategies
         private int barsInPosition = 0;
         private int currentLockStage = 0;
         private bool isEntryTriggeredToday = false;
+
+        // Estrategia Cohete de Recuperación Inmediata State
+        private bool rocketExecutedToday = false;
+        private bool isRocketTradeActive = false;
 
         // Guardián de Rango Pre-Apertura
         private double preEntryHigh = double.MinValue;
@@ -89,6 +101,14 @@ namespace NinjaTrader.NinjaScript.Strategies
         private TextBox txtEvaluationSecUI;
         private TextBox txtLossCutUI;
         private TextBlock txtAdaptiveStatusUI;
+
+        // UI Controls para Cohete Recuperación
+        private CheckBox chkUseRocketRecoveryUI;
+        private ComboBox comboRocketModeUI;
+        private TextBox txtRocketStopLossUI;
+        private TextBox txtRocketProfitTargetUI;
+        private TextBox txtRocketWickFilterUI;
+        private TextBlock txtRocketStatusUI;
 
         private bool isUpdatingUI = false;
         #endregion
@@ -223,6 +243,28 @@ namespace NinjaTrader.NinjaScript.Strategies
         public double LossCutDollars { get; set; }
         #endregion
 
+        #region 6. Estrategia Cohete de Recuperación Inmediata
+        [NinjaScriptProperty]
+        [Display(Name = "Activar Cohete Recuperación", Order = 1, GroupName = "6. Cohete Recuperación")]
+        public bool UseRocketRecovery { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Modo Disparo Cohete", Order = 2, GroupName = "6. Cohete Recuperación")]
+        public RocketRecoveryModeEnum RocketMode { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Cohete Stop Loss (Ticks)", Order = 3, GroupName = "6. Cohete Recuperación")]
+        public int RocketStopLossTicks { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Cohete Profit Target (Ticks)", Order = 4, GroupName = "6. Cohete Recuperación")]
+        public int RocketProfitTargetTicks { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Umbral Mecha VSA (%)", Order = 5, GroupName = "6. Cohete Recuperación")]
+        public double RocketWickFilterPercent { get; set; }
+        #endregion
+
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
@@ -265,6 +307,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                 TimedRangeMax = 37.5;
                 EvaluationSec = 7.5;
                 LossCutDollars = 300.0;
+
+                UseRocketRecovery = true;
+                RocketMode = RocketRecoveryModeEnum.AutoSmartFilter;
+                RocketStopLossTicks = 40;
+                RocketProfitTargetTicks = 80;
+                RocketWickFilterPercent = 40.0;
             }
             else if (State == State.Configure)
             {
@@ -427,6 +475,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                     if (txtTimedRangeMaxUI != null) txtTimedRangeMaxUI.Text = TimedRangeMax.ToString("F1");
                     if (txtEvaluationSecUI != null) txtEvaluationSecUI.Text = EvaluationSec.ToString("F1");
                     if (txtLossCutUI != null) txtLossCutUI.Text = LossCutDollars.ToString("N0");
+
+                    if (chkUseRocketRecoveryUI != null) chkUseRocketRecoveryUI.IsChecked = UseRocketRecovery;
+                    if (comboRocketModeUI != null) comboRocketModeUI.SelectedIndex = (int)RocketMode;
+                    if (txtRocketStopLossUI != null) txtRocketStopLossUI.Text = RocketStopLossTicks.ToString();
+                    if (txtRocketProfitTargetUI != null) txtRocketProfitTargetUI.Text = RocketProfitTargetTicks.ToString();
+                    if (txtRocketWickFilterUI != null) txtRocketWickFilterUI.Text = RocketWickFilterPercent.ToString("F0");
                 }
                 finally
                 {
@@ -459,6 +513,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 resolvedDirection = "NONE";
                 currentLockStage = 0;
                 timedCutEvaluatedToday = false;
+                rocketExecutedToday = false;
+                isRocketTradeActive = false;
                 entryTimestamp = DateTime.MinValue;
                 AppendLog($"[INFO V2] Nuevo día de trading iniciado: {currentTradeDate:yyyy-MM-dd}");
             }
@@ -564,34 +620,44 @@ namespace NinjaTrader.NinjaScript.Strategies
                     }
                 }
 
-                // Profit Lock (4 Stages)
+                // Profit Lock (4 Stages) - Aplica a la Operación Inicial y a la Operación Cohete
+                string lockTag = isRocketTradeActive ? "[🚀 ROCKET PROFIT LOCK V2]" : "[PROFIT LOCK V2]";
+
                 if (openProfitDollars >= Stage4Trigger && currentLockStage < 4)
                 {
                     currentLockStage = 4;
                     double secureTicks = Stage4Secure / (Contracts * Instrument.MasterInstrument.PointValue * TickSize);
                     SetStopLoss(CalculationMode.Ticks, -Math.Abs(secureTicks));
-                    AppendLog($"[PROFIT LOCK V2] Stage 4 alcanzado (${openProfitDollars:N0})! Asegurando +${Stage4Secure:N0}");
+                    double netEstimated = dailyCumProfit + Stage4Secure;
+                    AppendLog($"{lockTag} Stage 4 alcanzado (${openProfitDollars:N0})! Asegurando +${Stage4Secure:N0}. PnL Neto Día Estimado: ${netEstimated:N2}");
+                    if (isRocketTradeActive) ActualizarRocketStatusUI($"🚀 STAGE 4 LOCK (+$ {Stage4Secure:N0} Asegurados)");
                 }
                 else if (openProfitDollars >= Stage3Trigger && currentLockStage < 3)
                 {
                     currentLockStage = 3;
                     double secureTicks = Stage3Secure / (Contracts * Instrument.MasterInstrument.PointValue * TickSize);
                     SetStopLoss(CalculationMode.Ticks, -Math.Abs(secureTicks));
-                    AppendLog($"[PROFIT LOCK V2] Stage 3 alcanzado (${openProfitDollars:N0})! Asegurando +${Stage3Secure:N0}");
+                    double netEstimated = dailyCumProfit + Stage3Secure;
+                    AppendLog($"{lockTag} Stage 3 alcanzado (${openProfitDollars:N0})! Asegurando +${Stage3Secure:N0}. PnL Neto Día Estimado: ${netEstimated:N2}");
+                    if (isRocketTradeActive) ActualizarRocketStatusUI($"🚀 STAGE 3 LOCK (+$ {Stage3Secure:N0} Asegurados)");
                 }
                 else if (openProfitDollars >= Stage2Trigger && currentLockStage < 2)
                 {
                     currentLockStage = 2;
                     double secureTicks = Stage2Secure / (Contracts * Instrument.MasterInstrument.PointValue * TickSize);
                     SetStopLoss(CalculationMode.Ticks, -Math.Abs(secureTicks));
-                    AppendLog($"[PROFIT LOCK V2] Stage 2 alcanzado (${openProfitDollars:N0})! Asegurando +${Stage2Secure:N0}");
+                    double netEstimated = dailyCumProfit + Stage2Secure;
+                    AppendLog($"{lockTag} Stage 2 alcanzado (${openProfitDollars:N0})! Asegurando +${Stage2Secure:N0}. PnL Neto Día Estimado: ${netEstimated:N2}");
+                    if (isRocketTradeActive) ActualizarRocketStatusUI($"🚀 STAGE 2 LOCK (+$ {Stage2Secure:N0} Asegurados)");
                 }
                 else if (openProfitDollars >= Stage1Trigger && currentLockStage < 1)
                 {
                     currentLockStage = 1;
                     double secureTicks = Stage1Secure / (Contracts * Instrument.MasterInstrument.PointValue * TickSize);
                     SetStopLoss(CalculationMode.Ticks, -Math.Abs(secureTicks));
-                    AppendLog($"[PROFIT LOCK V2] Stage 1 alcanzado (${openProfitDollars:N0})! Asegurando +${Stage1Secure:N0}");
+                    double netEstimated = dailyCumProfit + Stage1Secure;
+                    AppendLog($"{lockTag} Stage 1 alcanzado (${openProfitDollars:N0})! Asegurando +${Stage1Secure:N0} (Garantizando PnL Día Neto: ${netEstimated:N2})");
+                    if (isRocketTradeActive) ActualizarRocketStatusUI($"🚀 STAGE 1 LOCK (+$ {Stage1Secure:N0} Asegurados)");
                 }
             }
         }
@@ -613,6 +679,88 @@ namespace NinjaTrader.NinjaScript.Strategies
                     {
                         dailyPnLocked = true;
                         AppendLog($"[RISK LOCK V2] Bloqueo diario activado. PnL acumulado: ${dailyCumProfit:N2}");
+                    }
+
+                    // ---------------- ESTRATEGIA COHETE: GATILLAZO INMEDIATO POST-STOP LOSS ----------------
+                    if (pnl < 0 && UseRocketRecovery && RocketMode != RocketRecoveryModeEnum.Disabled && !rocketExecutedToday && !dailyPnLocked && Position.MarketPosition == MarketPosition.Flat)
+                    {
+                        rocketExecutedToday = true;
+                        isRocketTradeActive = true;
+
+                        MarketPosition lastPos = lastTrade.Entry.MarketPosition;
+                        string lastDirStr = (lastPos == MarketPosition.Long) ? "LONG" : "SHORT";
+                        string rocketDir = "NONE";
+
+                        // Métricas de la vela de 30s actual (VSA Mecha & EMAs)
+                        double barRange = High[0] - Low[0];
+                        double upperWick = High[0] - Math.Max(Open[0], Close[0]);
+                        double lowerWick = Math.Min(Open[0], Close[0]) - Low[0];
+                        double lowerWickPct = (barRange > 0) ? (lowerWick / barRange) * 100.0 : 0;
+                        double upperWickPct = (barRange > 0) ? (upperWick / barRange) * 100.0 : 0;
+
+                        bool emaBullish = (Close[0] > emaFast[0] && emaFast[0] > emaMid[0]);
+                        bool emaBearish = (Close[0] < emaFast[0] && emaFast[0] < emaMid[0]);
+
+                        if (RocketMode == RocketRecoveryModeEnum.SameDirection)
+                        {
+                            rocketDir = lastDirStr;
+                        }
+                        else if (RocketMode == RocketRecoveryModeEnum.ReverseDirection)
+                        {
+                            rocketDir = (lastDirStr == "LONG") ? "SHORT" : "LONG";
+                        }
+                        else if (RocketMode == RocketRecoveryModeEnum.AutoSmartFilter)
+                        {
+                            if (lastDirStr == "LONG")
+                            {
+                                // Estábamos comprados y nos saltó el SL hacia abajo.
+                                // Si mecha inferior >= umbral VSA O EMAs alcistas -> Reabsorción -> Re-comprar Long
+                                if (lowerWickPct >= RocketWickFilterPercent || emaBullish)
+                                {
+                                    rocketDir = "LONG";
+                                }
+                                else
+                                {
+                                    rocketDir = "SHORT"; // Caída limpia de cuerpo lleno -> Stop & Reverse Venta
+                                }
+                            }
+                            else // lastDirStr == "SHORT"
+                            {
+                                // Estábamos vendidos y nos saltó el SL hacia arriba.
+                                // Si mecha superior >= umbral VSA O EMAs bajistas -> Reabsorción -> Re-vender Short
+                                if (upperWickPct >= RocketWickFilterPercent || emaBearish)
+                                {
+                                    rocketDir = "SHORT";
+                                }
+                                else
+                                {
+                                    rocketDir = "LONG"; // Subida limpia de cuerpo lleno -> Stop & Reverse Compra
+                                }
+                            }
+                        }
+
+                        if (rocketDir == "LONG")
+                        {
+                            SetStopLoss(CalculationMode.Ticks, RocketStopLossTicks);
+                            SetProfitTarget(CalculationMode.Ticks, RocketProfitTargetTicks);
+                            EnterLong(Contracts, "BotApertura_Rocket_Long");
+                            tradesTodayCount++;
+                            barsInPosition = 0;
+                            entryTimestamp = DateTime.Now;
+                            ActualizarRocketStatusUI($"🚀 COHETE LONG @ {Close[0]} (Modo: {RocketMode})");
+                            AppendLog($"[🚀 COHETE V2] GATILLAZO INMEDIATO LONG ({Contracts} cont.) @ {Close[0]} | Modo: {RocketMode} | Mecha Inf: {lowerWickPct:F1}% | EMA Bull: {emaBullish}");
+                        }
+                        else if (rocketDir == "SHORT")
+                        {
+                            SetStopLoss(CalculationMode.Ticks, RocketStopLossTicks);
+                            SetProfitTarget(CalculationMode.Ticks, RocketProfitTargetTicks);
+                            EnterShort(Contracts, "BotApertura_Rocket_Short");
+                            tradesTodayCount++;
+                            barsInPosition = 0;
+                            entryTimestamp = DateTime.Now;
+                            ActualizarRocketStatusUI($"🚀 COHETE SHORT @ {Close[0]} (Modo: {RocketMode})");
+                            AppendLog($"[🚀 COHETE V2] GATILLAZO INMEDIATO SHORT ({Contracts} cont.) @ {Close[0]} | Modo: {RocketMode} | Mecha Sup: {upperWickPct:F1}% | EMA Bear: {emaBearish}");
+                        }
                     }
                 }
             }
@@ -671,13 +819,14 @@ namespace NinjaTrader.NinjaScript.Strategies
                 };
 
                 Grid rootGrid = new Grid();
-                rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header
-                rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Sec 1 & 2
-                rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Sec 3 & 4
-                rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Sec 5: Adaptive Management
-                rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Telemetria
-                rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Output Log
-                rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Footer Buttons
+                rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header (Row 0)
+                rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Sec 1 & 2 (Row 1)
+                rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Sec 3 & 4 (Row 2)
+                rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Sec 5: Adaptive Management (Row 3)
+                rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Sec 6: Cohete Recuperación (Row 4)
+                rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Telemetria (Row 5)
+                rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Output Log (Row 6)
+                rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Footer Buttons (Row 7)
 
                 // ---------------- HEADER ----------------
                 Grid headerGrid = new Grid { Margin = new Thickness(0, 0, 0, 10), Cursor = Cursors.SizeAll };
@@ -944,7 +1093,78 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Border sec5 = CreateSectionBox("5. ADAPTIVE MANAGEMENT (TIMED CUT)", "#F43F5E", adaptiveGrid);
                 Grid.SetRow(sec5, 3); rootGrid.Children.Add(sec5);
 
-                // ---------------- FILA 4: TELEMETRY ----------------
+                // ---------------- FILA 4: SEC 6 (ESTRATEGIA COHETE DE RECUPERACIÓN) ----------------
+                Grid rocketGrid = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+                rocketGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                rocketGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10, GridUnitType.Pixel) });
+                rocketGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                rocketGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10, GridUnitType.Pixel) });
+                rocketGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                // Col 1: Checkbox & Status
+                StackPanel rCol1 = new StackPanel();
+                chkUseRocketRecoveryUI = new CheckBox
+                {
+                    Content = " COHETE RECUPERACIÓN - ARMED",
+                    IsChecked = UseRocketRecovery,
+                    Foreground = HexColor("#F59E0B"),
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 11,
+                    Margin = new Thickness(0, 2, 0, 4)
+                };
+                chkUseRocketRecoveryUI.Click += (s, e) => {
+                    UseRocketRecovery = chkUseRocketRecoveryUI.IsChecked ?? false;
+                    AppendLog(UseRocketRecovery ? "[COHETE V2] Recuperación Inmediata ARMADA" : "[COHETE V2] Recuperación Inmediata DESARMADA");
+                };
+                rCol1.Children.Add(chkUseRocketRecoveryUI);
+
+                txtRocketStatusUI = new TextBlock { Text = "Estado: Listo (Modo Auto)", Foreground = HexColor("#F59E0B"), FontSize = 10.5 };
+                rCol1.Children.Add(txtRocketStatusUI);
+                Grid.SetColumn(rCol1, 0);
+
+                // Col 2: Modo Disparo Selector & Umbral Mecha
+                StackPanel rCol2 = new StackPanel();
+                comboRocketModeUI = new ComboBox
+                {
+                    Background = HexColor("#0F172A"),
+                    Foreground = Brushes.White,
+                    FontSize = 10.5,
+                    Margin = new Thickness(0, 2, 0, 2)
+                };
+                comboRocketModeUI.Items.Add("Desactivado");
+                comboRocketModeUI.Items.Add("Misma Dirección");
+                comboRocketModeUI.Items.Add("Inversión (Reverse)");
+                comboRocketModeUI.Items.Add("Auto Smart Filter");
+                comboRocketModeUI.SelectedIndex = (int)RocketMode;
+                comboRocketModeUI.SelectionChanged += (s, e) => {
+                    if (isUpdatingUI) return;
+                    RocketMode = (RocketRecoveryModeEnum)comboRocketModeUI.SelectedIndex;
+                    AppendLog($"[COHETE V2] Modo de Recuperación actualizado a: {RocketMode}");
+                };
+
+                txtRocketWickFilterUI = CreateEditableInput(RocketWickFilterPercent.ToString("F0"), (val) => RocketWickFilterPercent = val);
+
+                rCol2.Children.Add(CreateKvRowControl("Modo Disparo:", comboRocketModeUI));
+                rCol2.Children.Add(CreateKvRowControl("Mecha VSA Min %:", txtRocketWickFilterUI));
+                Grid.SetColumn(rCol2, 2);
+
+                // Col 3: SL Ticks & TP Ticks
+                StackPanel rCol3 = new StackPanel();
+                txtRocketStopLossUI = CreateEditableInputInt(RocketStopLossTicks.ToString(), (val) => RocketStopLossTicks = val);
+                txtRocketProfitTargetUI = CreateEditableInputInt(RocketProfitTargetTicks.ToString(), (val) => RocketProfitTargetTicks = val);
+
+                rCol3.Children.Add(CreateKvRowControl("Cohete SL Ticks:", txtRocketStopLossUI));
+                rCol3.Children.Add(CreateKvRowControl("Cohete TP Ticks:", txtRocketProfitTargetUI));
+                Grid.SetColumn(rCol3, 4);
+
+                rocketGrid.Children.Add(rCol1);
+                rocketGrid.Children.Add(rCol2);
+                rocketGrid.Children.Add(rCol3);
+
+                Border sec6 = CreateSectionBox("6. ESTRATEGIA COHETE DE RECUPERACIÓN INMEDIATA (30S)", "#F59E0B", rocketGrid);
+                Grid.SetRow(sec6, 4); rootGrid.Children.Add(sec6);
+
+                // ---------------- FILA 5: TELEMETRY ----------------
                 Border telemBar = new Border
                 {
                     Background = HexColor("#030D1A"),
@@ -970,9 +1190,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Grid.SetColumn(txtBid, 0); Grid.SetColumn(txtAsk, 1); Grid.SetColumn(txtMarketTime, 2); Grid.SetColumn(txtRealizedPnl, 3); Grid.SetColumn(txtOpenPnl, 4);
                 tGrid.Children.Add(txtBid); tGrid.Children.Add(txtAsk); tGrid.Children.Add(txtMarketTime); tGrid.Children.Add(txtRealizedPnl); tGrid.Children.Add(txtOpenPnl);
                 telemBar.Child = tGrid;
-                Grid.SetRow(telemBar, 4); rootGrid.Children.Add(telemBar);
+                Grid.SetRow(telemBar, 5); rootGrid.Children.Add(telemBar);
 
-                // ---------------- FILA 5: OUTPUT LOG ----------------
+                // ---------------- FILA 6: OUTPUT LOG ----------------
                 txtLogOutput = new TextBox
                 {
                     IsReadOnly = true,
@@ -988,9 +1208,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                     VerticalAlignment = VerticalAlignment.Stretch
                 };
-                Grid.SetRow(txtLogOutput, 5); rootGrid.Children.Add(txtLogOutput);
+                Grid.SetRow(txtLogOutput, 6); rootGrid.Children.Add(txtLogOutput);
 
-                // ---------------- FILA 6: FOOTER BUTTONS ----------------
+                // ---------------- FILA 7: FOOTER BUTTONS ----------------
                 Grid fGrid = new Grid();
                 fGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 fGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8, GridUnitType.Pixel) });
@@ -1027,7 +1247,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Grid.SetColumn(btnResetPnL, 2);
 
                 fGrid.Children.Add(btnFlatten); fGrid.Children.Add(btnResetPnL);
-                Grid.SetRow(fGrid, 6); rootGrid.Children.Add(fGrid);
+                Grid.SetRow(fGrid, 7); rootGrid.Children.Add(fGrid);
 
                 outerBorder.Child = rootGrid;
                 controlWindow.Content = outerBorder;
@@ -1166,6 +1386,14 @@ namespace NinjaTrader.NinjaScript.Strategies
             if (controlWindow == null || controlWindow.Dispatcher == null) return;
             controlWindow.Dispatcher.BeginInvoke(new Action(() => {
                 if (txtAdaptiveStatusUI != null) txtAdaptiveStatusUI.Text = "Estado: " + text;
+            }), DispatcherPriority.Background);
+        }
+
+        private void ActualizarRocketStatusUI(string text)
+        {
+            if (controlWindow == null || controlWindow.Dispatcher == null) return;
+            controlWindow.Dispatcher.BeginInvoke(new Action(() => {
+                if (txtRocketStatusUI != null) txtRocketStatusUI.Text = text;
             }), DispatcherPriority.Background);
         }
 
